@@ -24,15 +24,71 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// hopByHopHeaders are headers that should not be forwarded per RFC 7230
+var hopByHopHeaders = map[string]struct{}{
+	"Connection":          {},
+	"Proxy-Connection":    {},
+	"Keep-Alive":          {},
+	"Transfer-Encoding":   {},
+	"Te":                  {},
+	"Trailer":             {},
+	"Upgrade":             {},
+	"Proxy-Authenticate":  {},
+	"Proxy-Authorization": {},
+}
+
+// autoManagedHeaders are headers automatically managed by Go http.Client
+var autoManagedHeaders = map[string]struct{}{
+	"Host":           {},
+	"Content-Length": {},
+}
+
+// sensitiveHeaders should not be forwarded to avoid credential leakage
+var sensitiveHeaders = map[string]struct{}{
+	"Authorization": {},
+	"Cookie":        {},
+}
+
+func shouldForwardHeader(header string) bool {
+	canonical := http.CanonicalHeaderKey(header)
+	if _, exists := hopByHopHeaders[canonical]; exists {
+		return false
+	}
+	if _, exists := autoManagedHeaders[canonical]; exists {
+		return false
+	}
+	if _, exists := sensitiveHeaders[canonical]; exists {
+		return false
+	}
+	return true
+}
+
+func copyForwardableHeaders(src http.Header, dst *http.Header) {
+	for key, values := range src {
+		if !shouldForwardHeader(key) {
+			continue
+		}
+		// Skip if header already set (e.g., by HeadersOverride or Adaptor)
+		if dst.Get(key) != "" {
+			continue
+		}
+		for _, v := range values {
+			dst.Add(key, v)
+		}
+	}
+}
+
 func SetupApiRequestHeader(info *common.RelayInfo, c *gin.Context, req *http.Header) {
 	if info.RelayMode == constant.RelayModeAudioTranscription || info.RelayMode == constant.RelayModeAudioTranslation {
-		// multipart/form-data
+		// multipart/form-data - keep original behavior
 	} else if info.RelayMode == constant.RelayModeRealtime {
-		// websocket
+		// websocket - keep original behavior
 	} else {
-		req.Set("Content-Type", c.Request.Header.Get("Content-Type"))
-		req.Set("Accept", c.Request.Header.Get("Accept"))
-		if info.IsStream && c.Request.Header.Get("Accept") == "" {
+		copyForwardableHeaders(c.Request.Header, req)
+		if req.Get("Content-Type") == "" {
+			req.Set("Content-Type", c.Request.Header.Get("Content-Type"))
+		}
+		if info.IsStream && req.Get("Accept") == "" {
 			req.Set("Accept", "text/event-stream")
 		}
 	}

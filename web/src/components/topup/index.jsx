@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState, useContext, useRef } from 'react';
+import React, { useEffect, useState, useContext, useRef, useCallback } from 'react';
 import {
   API,
   showError,
@@ -86,6 +86,16 @@ const TopUp = () => {
 
   // 账单Modal状态
   const [openHistory, setOpenHistory] = useState(false);
+
+  // 签到相关状态
+  const [checkInStatus, setCheckInStatus] = useState({
+    enabled: false,
+    checked_in: false,
+    quota: 0,
+    min_quota: 0,
+    max_quota: 0,
+  });
+  const [checkInLoading, setCheckInLoading] = useState(false);
 
   // 预设充值额度选项
   const [presetAmounts, setPresetAmounts] = useState([]);
@@ -439,6 +449,51 @@ const TopUp = () => {
     }
   };
 
+  // 获取签到状态
+  const getCheckInStatus = useCallback(async () => {
+    try {
+      const res = await API.get('/api/user/checkin');
+      const { success, data } = res.data;
+      if (success) {
+        setCheckInStatus(data);
+      }
+    } catch (error) {
+      console.error('获取签到状态失败:', error);
+    }
+  }, []);
+
+  // 执行签到
+  const doCheckIn = async () => {
+    if (checkInStatus.checked_in) {
+      showInfo(t('今天已经签到过啦'));
+      return;
+    }
+    setCheckInLoading(true);
+    try {
+      const res = await API.post('/api/user/checkin');
+      const { success, message, data } = res.data;
+      if (success) {
+        setCheckInStatus((prev) => ({
+          ...prev,
+          checked_in: true,
+          quota: data.quota,
+        }));
+        Modal.success({
+          title: t('签到成功！'),
+          content: t('恭喜获得额度：') + renderQuota(data.quota),
+          centered: true,
+        });
+        getUserQuota();
+      } else {
+        showError(message);
+      }
+    } catch (error) {
+      showError(t('签到失败'));
+    } finally {
+      setCheckInLoading(false);
+    }
+  };
+
   // 划转邀请额度
   const transfer = async () => {
     if (transferAmount < getQuotaPerUnit()) {
@@ -480,7 +535,8 @@ const TopUp = () => {
   // 在 statusState 可用时获取充值信息
   useEffect(() => {
     getTopupInfo().then();
-  }, []);
+    getCheckInStatus();
+  }, [getCheckInStatus]);
 
   useEffect(() => {
     if (statusState?.status) {
@@ -702,6 +758,9 @@ const TopUp = () => {
               statusLoading={statusLoading}
               topupInfo={topupInfo}
               onOpenHistory={handleOpenHistory}
+              checkInStatus={checkInStatus}
+              checkInLoading={checkInLoading}
+              doCheckIn={doCheckIn}
             />
           </div>
 

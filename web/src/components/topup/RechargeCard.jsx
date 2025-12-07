@@ -41,6 +41,7 @@ import {
   BarChart2,
   TrendingUp,
   Receipt,
+  CalendarCheck,
 } from 'lucide-react';
 import { IconGift } from '@douyinfe/semi-icons';
 import { useMinimumLoadingTime } from '../../hooks/common/useMinimumLoadingTime';
@@ -83,6 +84,9 @@ const RechargeCard = ({
   statusLoading,
   topupInfo,
   onOpenHistory,
+  checkInStatus,
+  checkInLoading,
+  doCheckIn,
 }) => {
   const onlineFormApiRef = useRef(null);
   const redeemFormApiRef = useRef(null);
@@ -103,13 +107,37 @@ const RechargeCard = ({
             <div className='text-xs'>{t('多种充值方式，安全便捷')}</div>
           </div>
         </div>
-        <Button
-          icon={<Receipt size={16} />}
-          theme='solid'
-          onClick={onOpenHistory}
-        >
-          {t('账单')}
-        </Button>
+        <Space>
+          {checkInStatus?.enabled && (
+            <Tooltip
+              content={
+                checkInStatus?.checked_in
+                  ? t('今日已签到')
+                  : t('签到可获得') +
+                    ` ${renderQuota(checkInStatus?.min_quota || 0)} ~ ${renderQuota(checkInStatus?.max_quota || 0)} ` +
+                    t('额度')
+              }
+            >
+              <Button
+                icon={<CalendarCheck size={16} />}
+                theme={checkInStatus?.checked_in ? 'light' : 'solid'}
+                type={checkInStatus?.checked_in ? 'tertiary' : 'primary'}
+                onClick={doCheckIn}
+                loading={checkInLoading}
+                disabled={checkInStatus?.checked_in}
+              >
+                {checkInStatus?.checked_in ? t('已签到') : t('签到')}
+              </Button>
+            </Tooltip>
+          )}
+          <Button
+            icon={<Receipt size={16} />}
+            theme='solid'
+            onClick={onOpenHistory}
+          >
+            {t('账单')}
+          </Button>
+        </Space>
       </div>
 
       <Space vertical style={{ width: '100%' }}>

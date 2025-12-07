@@ -49,6 +49,11 @@ const OperationSetting = () => {
     DemoSiteEnabled: false,
     SelfUseModeEnabled: false,
 
+    /* 签到设置 */
+    'checkin_setting.enabled': false,
+    'checkin_setting.min_quota': 1000,
+    'checkin_setting.max_quota': 5000,
+
     /* 顶栏模块管理 */
     HeaderNavModules: '',
 
@@ -83,6 +88,8 @@ const OperationSetting = () => {
       data.forEach((item) => {
         if (typeof inputs[item.key] === 'boolean') {
           newInputs[item.key] = toBoolean(item.value);
+        } else if (typeof inputs[item.key] === 'number') {
+          newInputs[item.key] = Number(item.value) || 0;
         } else {
           newInputs[item.key] = item.value;
         }

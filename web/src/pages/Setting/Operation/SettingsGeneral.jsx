@@ -56,6 +56,9 @@ export default function GeneralSettings(props) {
     DefaultCollapseSidebar: false,
     DemoSiteEnabled: false,
     SelfUseModeEnabled: false,
+    'checkin_setting.enabled': false,
+    'checkin_setting.min_quota': 1000,
+    'checkin_setting.max_quota': 5000,
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -290,6 +293,51 @@ export default function GeneralSettings(props) {
             <Row>
               <Button size='default' onClick={onSubmit}>
                 {t('保存通用设置')}
+              </Button>
+            </Row>
+          </Form.Section>
+
+          <Form.Section text={t('签到设置')}>
+            <Row gutter={16}>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.Switch
+                  field={'checkin_setting.enabled'}
+                  label={t('启用每日签到')}
+                  extraText={t('开启后用户可在钱包页面进行每日签到')}
+                  size='default'
+                  checkedText='｜'
+                  uncheckedText='〇'
+                  onChange={handleFieldChange('checkin_setting.enabled')}
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.InputNumber
+                  field={'checkin_setting.min_quota'}
+                  label={t('最小签到额度')}
+                  placeholder={t('签到获得的最小额度')}
+                  min={1}
+                  suffix='Token'
+                  extraText={t('内部额度单位，500000 Token = 1 USD')}
+                  onChange={handleFieldChange('checkin_setting.min_quota')}
+                  disabled={!inputs['checkin_setting.enabled']}
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.InputNumber
+                  field={'checkin_setting.max_quota'}
+                  label={t('最大签到额度')}
+                  placeholder={t('签到获得的最大额度')}
+                  min={1}
+                  suffix='Token'
+                  extraText={t('签到额度将在最小和最大值之间随机')}
+                  onChange={handleFieldChange('checkin_setting.max_quota')}
+                  disabled={!inputs['checkin_setting.enabled']}
+                />
+              </Col>
+            </Row>
+            <Row>
+              <Button size='default' onClick={onSubmit}>
+                {t('保存签到设置')}
               </Button>
             </Row>
           </Form.Section>
