@@ -18,6 +18,7 @@ services:
       - TZ=Asia/Shanghai
       - ERROR_LOG_ENABLED=true
       - BATCH_UPDATE_ENABLED=true
+      - DEBUG=true
     depends_on:
       - redis
       - postgres
