@@ -419,9 +419,10 @@ type ModelLeaderboardEntry struct {
 
 func GetModelUsageLeaderboard(limit int) ([]ModelLeaderboardEntry, error) {
 	var entries []ModelLeaderboardEntry
-	err := LOG_DB.Table("logs").
-		Select("model_name, COUNT(*) as request_count, SUM(prompt_tokens + completion_tokens) as total_tokens, SUM(quota) as total_quota").
-		Where("type = ?", LogTypeConsume).
+	// Use quota_data table (persistent aggregated data) instead of logs table
+	// This ensures data survives log cleanup
+	err := DB.Table("quota_data").
+		Select("model_name, SUM(count) as request_count, SUM(token_used) as total_tokens, SUM(quota) as total_quota").
 		Where("model_name != ''").
 		Group("model_name").
 		Order("request_count DESC").
