@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Typography, Avatar } from '@douyinfe/semi-ui';
+import { Typography, Avatar, Tag } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import CardTable from '../../../../components/common/ui/CardTable';
 import { API, showError } from '../../../../helpers';
@@ -40,6 +40,17 @@ const LeaderboardTab = () => {
     return '#' + '00000'.substring(0, 6 - c.length) + c;
   };
 
+  const getLevelColor = (level) => {
+    const colors = {
+      0: 'grey',
+      1: 'green',
+      2: 'blue',
+      3: 'purple',
+      4: 'orange',
+    };
+    return colors[level] || 'grey';
+  };
+
   const columns = [
     {
       title: t('排名'),
@@ -76,16 +87,48 @@ const LeaderboardTab = () => {
     },
     {
       title: t('用户'),
-      dataIndex: 'display_name',
-      key: 'display_name',
-      render: (text) => (
-        <div className='flex items-center gap-2'>
-          <Avatar size='small' color={stringToColor(text)}>
-            {text?.charAt(0)?.toUpperCase() || '?'}
-          </Avatar>
-          <Typography.Text>{text || t('匿名用户')}</Typography.Text>
-        </div>
-      ),
+      dataIndex: 'linux_do_username',
+      key: 'user',
+      render: (_, record) => {
+        const hasLinuxDO = record.linux_do_username && record.linux_do_avatar;
+        const displayName = hasLinuxDO
+          ? record.linux_do_username
+          : record.display_name || t('匿名用户');
+        const avatarSrc = hasLinuxDO ? record.linux_do_avatar : null;
+
+        return (
+          <div className='flex items-center gap-2'>
+            <div className='relative'>
+              {avatarSrc ? (
+                <Avatar size='small' src={avatarSrc} />
+              ) : (
+                <Avatar size='small' color={stringToColor(displayName)}>
+                  {displayName?.charAt(0)?.toUpperCase() || '?'}
+                </Avatar>
+              )}
+              {hasLinuxDO && record.linux_do_level > 0 && (
+                <Tag
+                  color={getLevelColor(record.linux_do_level)}
+                  size='small'
+                  style={{
+                    position: 'absolute',
+                    bottom: -4,
+                    right: -8,
+                    fontSize: '10px',
+                    padding: '0 4px',
+                    minWidth: 'auto',
+                    height: '14px',
+                    lineHeight: '14px',
+                  }}
+                >
+                  {record.linux_do_level}
+                </Tag>
+              )}
+            </div>
+            <Typography.Text>{displayName}</Typography.Text>
+          </div>
+        );
+      },
     },
     {
       title: t('请求次数'),

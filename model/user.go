@@ -44,6 +44,9 @@ type User struct {
 	InviterId        int            `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
 	LinuxDOId        string         `json:"linux_do_id" gorm:"column:linux_do_id;index"`
+	LinuxDOUsername  string         `json:"linux_do_username" gorm:"column:linux_do_username;type:varchar(64)"`
+	LinuxDOAvatar    string         `json:"linux_do_avatar" gorm:"column:linux_do_avatar;type:varchar(512)"`
+	LinuxDOLevel     int            `json:"linux_do_level" gorm:"column:linux_do_level;type:int;default:0"`
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
 	Remark           string         `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
 	StripeCustomer   string         `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
@@ -931,15 +934,18 @@ func RootUserExists() bool {
 }
 
 type LeaderboardUser struct {
-	DisplayName  string `json:"display_name"`
-	RequestCount int    `json:"request_count"`
-	UsedQuota    int    `json:"used_quota"`
+	DisplayName     string `json:"display_name"`
+	LinuxDOUsername string `json:"linux_do_username"`
+	LinuxDOAvatar   string `json:"linux_do_avatar"`
+	LinuxDOLevel    int    `json:"linux_do_level"`
+	RequestCount    int    `json:"request_count"`
+	UsedQuota       int    `json:"used_quota"`
 }
 
 func GetUsageLeaderboard(limit int) ([]LeaderboardUser, error) {
 	var users []LeaderboardUser
 	err := DB.Model(&User{}).
-		Select("display_name, request_count, used_quota").
+		Select("display_name, linux_do_username, linux_do_avatar, linux_do_level, request_count, used_quota").
 		Where("status = ?", common.UserStatusEnabled).
 		Where("used_quota > 0").
 		Order("used_quota DESC").

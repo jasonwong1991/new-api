@@ -10,11 +10,14 @@ import (
 )
 
 type LeaderboardEntry struct {
-	Rank         int     `json:"rank"`
-	DisplayName  string  `json:"display_name"`
-	RequestCount int     `json:"request_count"`
-	UsedQuota    int     `json:"used_quota"`
-	AmountUSD    float64 `json:"amount_usd"`
+	Rank            int     `json:"rank"`
+	DisplayName     string  `json:"display_name"`
+	LinuxDOUsername string  `json:"linux_do_username"`
+	LinuxDOAvatar   string  `json:"linux_do_avatar"`
+	LinuxDOLevel    int     `json:"linux_do_level"`
+	RequestCount    int     `json:"request_count"`
+	UsedQuota       int     `json:"used_quota"`
+	AmountUSD       float64 `json:"amount_usd"`
 }
 
 func GetUsageLeaderboard(c *gin.Context) {
@@ -35,11 +38,14 @@ func GetUsageLeaderboard(c *gin.Context) {
 		}
 
 		entries = append(entries, LeaderboardEntry{
-			Rank:         i + 1,
-			DisplayName:  displayName,
-			RequestCount: user.RequestCount,
-			UsedQuota:    user.UsedQuota,
-			AmountUSD:    float64(user.UsedQuota) / common.QuotaPerUnit,
+			Rank:            i + 1,
+			DisplayName:     displayName,
+			LinuxDOUsername: user.LinuxDOUsername,
+			LinuxDOAvatar:   user.LinuxDOAvatar,
+			LinuxDOLevel:    user.LinuxDOLevel,
+			RequestCount:    user.RequestCount,
+			UsedQuota:       user.UsedQuota,
+			AmountUSD:       float64(user.UsedQuota) / common.QuotaPerUnit,
 		})
 	}
 

@@ -23,6 +23,7 @@ type LinuxdoUser struct {
 	Id         int    `json:"id"`
 	Username   string `json:"username"`
 	Name       string `json:"name"`
+	AvatarUrl  string `json:"avatar_url"`
 	Active     bool   `json:"active"`
 	TrustLevel int    `json:"trust_level"`
 	Silenced   bool   `json:"silenced"`
@@ -227,11 +228,19 @@ func LinuxdoOAuth(c *gin.Context) {
 			})
 			return
 		}
+		// 每次登录更新 Linux.do 信息
+		user.LinuxDOUsername = linuxdoUser.Username
+		user.LinuxDOAvatar = linuxdoUser.AvatarUrl
+		user.LinuxDOLevel = linuxdoUser.TrustLevel
+		user.Update(false)
 	} else {
 		if common.RegisterEnabled {
 			if linuxdoUser.TrustLevel >= common.LinuxDOMinimumTrustLevel {
 				user.Username = "linuxdo_" + strconv.Itoa(model.GetMaxUserId()+1)
 				user.DisplayName = linuxdoUser.Name
+				user.LinuxDOUsername = linuxdoUser.Username
+				user.LinuxDOAvatar = linuxdoUser.AvatarUrl
+				user.LinuxDOLevel = linuxdoUser.TrustLevel
 				user.Role = common.RoleCommonUser
 				user.Status = common.UserStatusEnabled
 

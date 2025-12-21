@@ -311,6 +311,34 @@ export const getUsersColumns = ({
       render: (text, record) => renderUsername(text, record),
     },
     {
+      title: 'Linux.do',
+      dataIndex: 'linux_do_username',
+      render: (text, record) => {
+        if (!text) return '-';
+        return (
+          <Space spacing={4}>
+            {record.linux_do_avatar && (
+              <img
+                src={record.linux_do_avatar}
+                alt={text}
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                }}
+              />
+            )}
+            <span>{text}</span>
+            {record.linux_do_level > 0 && (
+              <Tag color='blue' size='small'>
+                Lv.{record.linux_do_level}
+              </Tag>
+            )}
+          </Space>
+        );
+      },
+    },
+    {
       title: t('状态'),
       dataIndex: 'info',
       render: (text, record, index) =>
