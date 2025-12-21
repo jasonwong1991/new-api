@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -143,8 +144,15 @@ func getLinuxdoUserInfoByCode(code string, c *gin.Context) (*LinuxdoUser, error)
 	}
 	defer res2.Body.Close()
 
+	// 读取原始响应用于调试
+	bodyBytes, err := io.ReadAll(res2.Body)
+	if err != nil {
+		return nil, errors.New("failed to read response body")
+	}
+	common.SysLog(fmt.Sprintf("Linux DO user info response: %s", string(bodyBytes)))
+
 	var linuxdoUser LinuxdoUser
-	if err := json.NewDecoder(res2.Body).Decode(&linuxdoUser); err != nil {
+	if err := json.Unmarshal(bodyBytes, &linuxdoUser); err != nil {
 		return nil, err
 	}
 

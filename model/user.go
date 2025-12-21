@@ -929,3 +929,21 @@ func RootUserExists() bool {
 	}
 	return true
 }
+
+type LeaderboardUser struct {
+	DisplayName  string `json:"display_name"`
+	RequestCount int    `json:"request_count"`
+	UsedQuota    int    `json:"used_quota"`
+}
+
+func GetUsageLeaderboard(limit int) ([]LeaderboardUser, error) {
+	var users []LeaderboardUser
+	err := DB.Model(&User{}).
+		Select("display_name, request_count, used_quota").
+		Where("status = ?", common.UserStatusEnabled).
+		Where("used_quota > 0").
+		Order("used_quota DESC").
+		Limit(limit).
+		Find(&users).Error
+	return users, err
+}
