@@ -83,10 +83,18 @@ const LeaderboardTab = () => {
 
   const renderUserCell = (record) => {
     const hasLinuxDO = record.linux_do_username && record.linux_do_avatar;
-    const displayName = hasLinuxDO
-      ? record.linux_do_username
-      : record.display_name || t('匿名用户');
     const avatarSrc = hasLinuxDO ? record.linux_do_avatar : null;
+
+    // Format: name（username） for Linux.do users, otherwise just display_name
+    let displayText;
+    if (hasLinuxDO) {
+      const name = record.display_name || record.linux_do_username;
+      displayText = `${name}（${record.linux_do_username}）`;
+    } else {
+      displayText = record.display_name || t('匿名用户');
+    }
+
+    const avatarName = hasLinuxDO ? record.linux_do_username : (record.display_name || t('匿名用户'));
 
     return (
       <div className='flex items-center gap-2'>
@@ -94,8 +102,8 @@ const LeaderboardTab = () => {
           {avatarSrc ? (
             <Avatar size='small' src={avatarSrc} />
           ) : (
-            <Avatar size='small' color={stringToColor(displayName)}>
-              {displayName?.charAt(0)?.toUpperCase() || '?'}
+            <Avatar size='small' color={stringToColor(avatarName)}>
+              {avatarName?.charAt(0)?.toUpperCase() || '?'}
             </Avatar>
           )}
           {hasLinuxDO && record.linux_do_level > 0 && (
@@ -117,7 +125,7 @@ const LeaderboardTab = () => {
             </Tag>
           )}
         </div>
-        <Typography.Text>{displayName}</Typography.Text>
+        <Typography.Text>{displayText}</Typography.Text>
       </div>
     );
   };
