@@ -232,6 +232,10 @@ func LinuxdoOAuth(c *gin.Context) {
 		user.LinuxDOUsername = linuxdoUser.Username
 		user.LinuxDOAvatar = linuxdoUser.AvatarUrl
 		user.LinuxDOLevel = linuxdoUser.TrustLevel
+		// 同步 name 到 display_name
+		if linuxdoUser.Name != "" {
+			user.DisplayName = linuxdoUser.Name
+		}
 		user.Update(false)
 	} else {
 		if common.RegisterEnabled {

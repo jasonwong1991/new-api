@@ -85,11 +85,18 @@ const LeaderboardTab = () => {
     const hasLinuxDO = record.linux_do_username && record.linux_do_avatar;
     const avatarSrc = hasLinuxDO ? record.linux_do_avatar : null;
 
-    // Format: name（username） for Linux.do users, otherwise just display_name
+    // Display logic:
+    // - If has both name and username: show "name（username）"
+    // - If only has username (no name): show just "username"
+    // - If no Linux.do: show display_name or "匿名用户"
     let displayText;
     if (hasLinuxDO) {
-      const name = record.display_name || record.linux_do_username;
-      displayText = `${name}（${record.linux_do_username}）`;
+      const hasName = record.display_name && record.display_name !== record.linux_do_username;
+      if (hasName) {
+        displayText = `${record.display_name}（${record.linux_do_username}）`;
+      } else {
+        displayText = record.linux_do_username;
+      }
     } else {
       displayText = record.display_name || t('匿名用户');
     }
