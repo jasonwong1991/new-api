@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Typography, Avatar, Tag, Card, Tabs, TabPane } from '@douyinfe/semi-ui';
 import { IconUser, IconBox } from '@douyinfe/semi-icons';
+import { Squirrel } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import CardTable from '../../../../components/common/ui/CardTable';
 import { API, showError } from '../../../../helpers';
@@ -11,9 +12,12 @@ const LeaderboardTab = () => {
   const [activeTab, setActiveTab] = useState('users');
   const [userData, setUserData] = useState([]);
   const [modelData, setModelData] = useState([]);
+  const [balanceData, setBalanceData] = useState([]);
   const [myRank, setMyRank] = useState(null);
+  const [myBalanceRank, setMyBalanceRank] = useState(null);
   const [userLoading, setUserLoading] = useState(false);
   const [modelLoading, setModelLoading] = useState(false);
+  const [balanceLoading, setBalanceLoading] = useState(false);
 
   useEffect(() => {
     fetchUserData();
@@ -22,6 +26,9 @@ const LeaderboardTab = () => {
   useEffect(() => {
     if (activeTab === 'models' && modelData.length === 0) {
       fetchModelData();
+    }
+    if (activeTab === 'balance' && balanceData.length === 0) {
+      fetchBalanceData();
     }
   }, [activeTab]);
 
@@ -57,6 +64,24 @@ const LeaderboardTab = () => {
       showError(error.message || t('获取模型排行榜数据失败'));
     } finally {
       setModelLoading(false);
+    }
+  };
+
+  const fetchBalanceData = async () => {
+    setBalanceLoading(true);
+    try {
+      const res = await API.get('/api/leaderboard/balance');
+      const { success, message, data: resData } = res.data;
+      if (success) {
+        setBalanceData(resData?.leaderboard || []);
+        setMyBalanceRank(resData?.my_rank || null);
+      } else {
+        showError(message);
+      }
+    } catch (error) {
+      showError(error.message || t('获取余额排行榜数据失败'));
+    } finally {
+      setBalanceLoading(false);
     }
   };
 
@@ -238,6 +263,28 @@ const LeaderboardTab = () => {
     },
   ];
 
+  const balanceColumns = [
+    {
+      title: t('排名'),
+      dataIndex: 'rank',
+      key: 'rank',
+      width: 80,
+      render: renderRankCell,
+    },
+    {
+      title: t('用户'),
+      dataIndex: 'linux_do_username',
+      key: 'user',
+      render: (_, record) => renderUserCell(record),
+    },
+    {
+      title: t('余额'),
+      dataIndex: 'amount_usd',
+      key: 'amount_usd',
+      render: (text) => `$${(text || 0).toFixed(2)}`,
+    },
+  ];
+
   return (
     <div className='p-4'>
       <Tabs activeKey={activeTab} onChange={setActiveTab}>
@@ -356,6 +403,85 @@ const LeaderboardTab = () => {
               loading={modelLoading}
               columns={modelColumns}
               dataSource={modelData}
+              rowKey='rank'
+              hidePagination={true}
+            />
+          </div>
+        </TabPane>
+        <TabPane
+          tab={
+            <span>
+              <Squirrel size={14} style={{ marginRight: 4 }} />
+              {t('囤囤鼠排行')}
+            </span>
+          }
+          itemKey='balance'
+        >
+          {myBalanceRank && (
+            <Card
+              className='mb-4 mt-4'
+              bodyStyle={{ padding: '12px 16px' }}
+              style={{
+                background:
+                  'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                border: '1px solid #f59e0b',
+              }}
+            >
+              <div className='flex items-center justify-between flex-wrap gap-3'>
+                <div className='flex items-center gap-3'>
+                  <Squirrel
+                    size={24}
+                    style={{ color: '#d97706' }}
+                  />
+                  <div>
+                    <Typography.Text strong style={{ fontSize: '14px' }}>
+                      {t('我的排名')}
+                    </Typography.Text>
+                    <div className='flex items-center gap-2 mt-1'>
+                      {renderUserCell(myBalanceRank)}
+                    </div>
+                  </div>
+                </div>
+                <div className='flex items-center gap-6 flex-wrap'>
+                  <div className='text-center'>
+                    <Typography.Text
+                      strong
+                      style={{
+                        fontSize: '24px',
+                        color: '#d97706',
+                      }}
+                    >
+                      #{myBalanceRank.rank}
+                    </Typography.Text>
+                    <Typography.Text
+                      type='tertiary'
+                      size='small'
+                      style={{ display: 'block' }}
+                    >
+                      {t('排名')}
+                    </Typography.Text>
+                  </div>
+                  <div className='text-center'>
+                    <Typography.Text strong style={{ fontSize: '16px' }}>
+                      ${(myBalanceRank.amount_usd || 0).toFixed(2)}
+                    </Typography.Text>
+                    <Typography.Text
+                      type='tertiary'
+                      size='small'
+                      style={{ display: 'block' }}
+                    >
+                      {t('余额')}
+                    </Typography.Text>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+          <div className='mt-4'>
+            <CardTable
+              loading={balanceLoading}
+              columns={balanceColumns}
+              dataSource={balanceData}
               rowKey='rank'
               hidePagination={true}
             />

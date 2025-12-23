@@ -242,7 +242,7 @@ func SearchUsers(keyword string, group string, startIdx int, num int) ([]*User, 
 	query := tx.Unscoped().Model(&User{})
 
 	// 构建搜索条件
-	likeCondition := "username LIKE ? OR email LIKE ? OR display_name LIKE ?"
+	likeCondition := "username LIKE ? OR email LIKE ? OR display_name LIKE ? OR linux_do_username LIKE ?"
 
 	// 尝试将关键字转换为整数ID
 	keywordInt, err := strconv.Atoi(keyword)
@@ -251,19 +251,19 @@ func SearchUsers(keyword string, group string, startIdx int, num int) ([]*User, 
 		likeCondition = "id = ? OR " + likeCondition
 		if group != "" {
 			query = query.Where("("+likeCondition+") AND "+commonGroupCol+" = ?",
-				keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
+				keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
 		} else {
 			query = query.Where(likeCondition,
-				keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
+				keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 		}
 	} else {
 		// 非数字关键字，只搜索字符串字段
 		if group != "" {
 			query = query.Where("("+likeCondition+") AND "+commonGroupCol+" = ?",
-				"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
+				"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
 		} else {
 			query = query.Where(likeCondition,
-				"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
+				"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 		}
 	}
 
@@ -983,5 +983,56 @@ func GetUserRank(userId int) (int, *LeaderboardUser, error) {
 		LinuxDOLevel:    user.LinuxDOLevel,
 		RequestCount:    user.RequestCount,
 		UsedQuota:       user.UsedQuota,
+	}, nil
+}
+
+type BalanceLeaderboardUser struct {
+	DisplayName     string `json:"display_name"`
+	LinuxDOUsername string `json:"linux_do_username"`
+	LinuxDOAvatar   string `json:"linux_do_avatar"`
+	LinuxDOLevel    int    `json:"linux_do_level"`
+	Quota           int    `json:"quota"`
+}
+
+func GetBalanceLeaderboard(limit int) ([]BalanceLeaderboardUser, error) {
+	var users []BalanceLeaderboardUser
+	err := DB.Model(&User{}).
+		Select("display_name, linux_do_username, linux_do_avatar, linux_do_level, quota").
+		Where("status = ?", common.UserStatusEnabled).
+		Where("quota > 0").
+		Order("quota DESC").
+		Limit(limit).
+		Find(&users).Error
+	return users, err
+}
+
+func GetUserBalanceRank(userId int) (int, *BalanceLeaderboardUser, error) {
+	var user User
+	err := DB.Select("id, display_name, linux_do_username, linux_do_avatar, linux_do_level, quota").
+		Where("id = ?", userId).
+		First(&user).Error
+	if err != nil {
+		return 0, nil, err
+	}
+
+	if user.Quota <= 0 {
+		return 0, nil, nil
+	}
+
+	var rank int64
+	err = DB.Model(&User{}).
+		Where("status = ?", common.UserStatusEnabled).
+		Where("quota > ?", user.Quota).
+		Count(&rank).Error
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return int(rank + 1), &BalanceLeaderboardUser{
+		DisplayName:     user.DisplayName,
+		LinuxDOUsername: user.LinuxDOUsername,
+		LinuxDOAvatar:   user.LinuxDOAvatar,
+		LinuxDOLevel:    user.LinuxDOLevel,
+		Quota:           user.Quota,
 	}, nil
 }

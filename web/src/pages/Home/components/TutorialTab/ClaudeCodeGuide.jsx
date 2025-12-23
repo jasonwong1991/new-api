@@ -14,24 +14,24 @@ const ClaudeCodeGuide = () => {
   const commands = {
     windows: {
       temporary: `set ANTHROPIC_BASE_URL=${siteAddress}
-set ANTHROPIC_API_KEY=your-api-key`,
+set ANTHROPIC_AUTH_TOKEN=your-api-key`,
       permanent: `setx ANTHROPIC_BASE_URL "${siteAddress}"
-setx ANTHROPIC_API_KEY "your-api-key"`,
+setx ANTHROPIC_AUTH_TOKEN "your-api-key"`,
     },
     macos: {
       temporary: `export ANTHROPIC_BASE_URL=${siteAddress}
-export ANTHROPIC_API_KEY=your-api-key`,
+export ANTHROPIC_AUTH_TOKEN=your-api-key`,
       permanent: `# 添加到 ~/.zshrc 或 ~/.bash_profile
 echo 'export ANTHROPIC_BASE_URL=${siteAddress}' >> ~/.zshrc
-echo 'export ANTHROPIC_API_KEY=your-api-key' >> ~/.zshrc
+echo 'export ANTHROPIC_AUTH_TOKEN=your-api-key' >> ~/.zshrc
 source ~/.zshrc`,
     },
     linux: {
       temporary: `export ANTHROPIC_BASE_URL=${siteAddress}
-export ANTHROPIC_API_KEY=your-api-key`,
+export ANTHROPIC_AUTH_TOKEN=your-api-key`,
       permanent: `# 添加到 ~/.bashrc
 echo 'export ANTHROPIC_BASE_URL=${siteAddress}' >> ~/.bashrc
-echo 'export ANTHROPIC_API_KEY=your-api-key' >> ~/.bashrc
+echo 'export ANTHROPIC_AUTH_TOKEN=your-api-key' >> ~/.bashrc
 source ~/.bashrc`,
     },
   };

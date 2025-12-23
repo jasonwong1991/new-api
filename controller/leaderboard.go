@@ -124,3 +124,78 @@ func GetModelLeaderboard(c *gin.Context) {
 		"data":    entries,
 	})
 }
+
+type BalanceLeaderboardEntry struct {
+	Rank            int     `json:"rank"`
+	DisplayName     string  `json:"display_name"`
+	LinuxDOUsername string  `json:"linux_do_username"`
+	LinuxDOAvatar   string  `json:"linux_do_avatar"`
+	LinuxDOLevel    int     `json:"linux_do_level"`
+	Quota           int     `json:"quota"`
+	AmountUSD       float64 `json:"amount_usd"`
+}
+
+type BalanceLeaderboardResponse struct {
+	Leaderboard []BalanceLeaderboardEntry `json:"leaderboard"`
+	MyRank      *BalanceLeaderboardEntry  `json:"my_rank,omitempty"`
+}
+
+func GetBalanceLeaderboard(c *gin.Context) {
+	users, err := model.GetBalanceLeaderboard(100)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	entries := make([]BalanceLeaderboardEntry, 0, len(users))
+	for i, user := range users {
+		displayName := user.DisplayName
+		if displayName == "" {
+			displayName = "Anonymous"
+		}
+
+		entries = append(entries, BalanceLeaderboardEntry{
+			Rank:            i + 1,
+			DisplayName:     displayName,
+			LinuxDOUsername: user.LinuxDOUsername,
+			LinuxDOAvatar:   user.LinuxDOAvatar,
+			LinuxDOLevel:    user.LinuxDOLevel,
+			Quota:           user.Quota,
+			AmountUSD:       float64(user.Quota) / common.QuotaPerUnit,
+		})
+	}
+
+	response := BalanceLeaderboardResponse{
+		Leaderboard: entries,
+	}
+
+	session := sessions.Default(c)
+	userId := session.Get("id")
+	if userId != nil {
+		rank, userData, err := model.GetUserBalanceRank(userId.(int))
+		if err == nil && userData != nil {
+			displayName := userData.DisplayName
+			if displayName == "" {
+				displayName = "Anonymous"
+			}
+			response.MyRank = &BalanceLeaderboardEntry{
+				Rank:            rank,
+				DisplayName:     displayName,
+				LinuxDOUsername: userData.LinuxDOUsername,
+				LinuxDOAvatar:   userData.LinuxDOAvatar,
+				LinuxDOLevel:    userData.LinuxDOLevel,
+				Quota:           userData.Quota,
+				AmountUSD:       float64(userData.Quota) / common.QuotaPerUnit,
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    response,
+	})
+}
