@@ -942,14 +942,26 @@ type LeaderboardUser struct {
 	UsedQuota       int    `json:"used_quota"`
 }
 
+func isLeaderboardHiddenUser(username string) bool {
+	for _, u := range common.LeaderboardHiddenUsers {
+		if u == username {
+			return true
+		}
+	}
+	return false
+}
+
 func GetUsageLeaderboard(limit int) ([]LeaderboardUser, error) {
 	var users []LeaderboardUser
-	err := DB.Model(&User{}).
+	query := DB.Model(&User{}).
 		Select("display_name, linux_do_username, linux_do_avatar, linux_do_level, request_count, used_quota").
 		Where("status = ?", common.UserStatusEnabled).
 		Where("role != ?", common.RoleRootUser).
-		Where("used_quota > 0").
-		Order("used_quota DESC").
+		Where("used_quota > 0")
+	if len(common.LeaderboardHiddenUsers) > 0 {
+		query = query.Where("username NOT IN ?", common.LeaderboardHiddenUsers)
+	}
+	err := query.Order("used_quota DESC").
 		Limit(limit).
 		Find(&users).Error
 	return users, err
@@ -957,23 +969,26 @@ func GetUsageLeaderboard(limit int) ([]LeaderboardUser, error) {
 
 func GetUserRank(userId int) (int, *LeaderboardUser, error) {
 	var user User
-	err := DB.Select("id, display_name, linux_do_username, linux_do_avatar, linux_do_level, request_count, used_quota").
+	err := DB.Select("id, username, display_name, linux_do_username, linux_do_avatar, linux_do_level, request_count, used_quota").
 		Where("id = ?", userId).
 		First(&user).Error
 	if err != nil {
 		return 0, nil, err
 	}
 
-	if user.UsedQuota <= 0 {
+	if user.UsedQuota <= 0 || isLeaderboardHiddenUser(user.Username) {
 		return 0, nil, nil
 	}
 
-	var rank int64
-	err = DB.Model(&User{}).
+	query := DB.Model(&User{}).
 		Where("status = ?", common.UserStatusEnabled).
 		Where("role != ?", common.RoleRootUser).
-		Where("used_quota > ?", user.UsedQuota).
-		Count(&rank).Error
+		Where("used_quota > ?", user.UsedQuota)
+	if len(common.LeaderboardHiddenUsers) > 0 {
+		query = query.Where("username NOT IN ?", common.LeaderboardHiddenUsers)
+	}
+	var rank int64
+	err = query.Count(&rank).Error
 	if err != nil {
 		return 0, nil, err
 	}
@@ -998,12 +1013,15 @@ type BalanceLeaderboardUser struct {
 
 func GetBalanceLeaderboard(limit int) ([]BalanceLeaderboardUser, error) {
 	var users []BalanceLeaderboardUser
-	err := DB.Model(&User{}).
+	query := DB.Model(&User{}).
 		Select("display_name, linux_do_username, linux_do_avatar, linux_do_level, quota").
 		Where("status = ?", common.UserStatusEnabled).
 		Where("role != ?", common.RoleRootUser).
-		Where("quota > 0").
-		Order("quota DESC").
+		Where("quota > 0")
+	if len(common.LeaderboardHiddenUsers) > 0 {
+		query = query.Where("username NOT IN ?", common.LeaderboardHiddenUsers)
+	}
+	err := query.Order("quota DESC").
 		Limit(limit).
 		Find(&users).Error
 	return users, err
@@ -1011,23 +1029,26 @@ func GetBalanceLeaderboard(limit int) ([]BalanceLeaderboardUser, error) {
 
 func GetUserBalanceRank(userId int) (int, *BalanceLeaderboardUser, error) {
 	var user User
-	err := DB.Select("id, display_name, linux_do_username, linux_do_avatar, linux_do_level, quota").
+	err := DB.Select("id, username, display_name, linux_do_username, linux_do_avatar, linux_do_level, quota").
 		Where("id = ?", userId).
 		First(&user).Error
 	if err != nil {
 		return 0, nil, err
 	}
 
-	if user.Quota <= 0 {
+	if user.Quota <= 0 || isLeaderboardHiddenUser(user.Username) {
 		return 0, nil, nil
 	}
 
-	var rank int64
-	err = DB.Model(&User{}).
+	query := DB.Model(&User{}).
 		Where("status = ?", common.UserStatusEnabled).
 		Where("role != ?", common.RoleRootUser).
-		Where("quota > ?", user.Quota).
-		Count(&rank).Error
+		Where("quota > ?", user.Quota)
+	if len(common.LeaderboardHiddenUsers) > 0 {
+		query = query.Where("username NOT IN ?", common.LeaderboardHiddenUsers)
+	}
+	var rank int64
+	err = query.Count(&rank).Error
 	if err != nil {
 		return 0, nil, err
 	}
