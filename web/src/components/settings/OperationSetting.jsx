@@ -26,6 +26,7 @@ import SettingsSensitiveWords from '../../pages/Setting/Operation/SettingsSensit
 import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
+import SettingsLeaderboard from '../../pages/Setting/Operation/SettingsLeaderboard';
 import { API, showError, toBoolean } from '../../helpers';
 
 const OperationSetting = () => {
@@ -76,6 +77,9 @@ const OperationSetting = () => {
     AutomaticDisableKeywords: '',
     'monitor_setting.auto_test_channel_enabled': false,
     'monitor_setting.auto_test_channel_minutes': 10,
+
+    /* 榜单设置 */
+    LeaderboardHiddenUsers: '',
   });
 
   let [loading, setLoading] = useState(false);
@@ -146,6 +150,10 @@ const OperationSetting = () => {
         {/* 额度设置 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsCreditLimit options={inputs} refresh={onRefresh} />
+        </Card>
+        {/* 榜单设置 */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingsLeaderboard options={inputs} refresh={onRefresh} />
         </Card>
       </Spin>
     </>
