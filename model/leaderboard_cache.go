@@ -23,11 +23,16 @@ var leaderboardCache = &LeaderboardCache{
 // Periods that need caching (expensive queries)
 var cachedPeriods = []string{"7d", "14d", "30d"}
 
-// InitLeaderboardCache initializes the leaderboard cache on startup
+// InitLeaderboardCache initializes the leaderboard cache on startup (async)
 func InitLeaderboardCache() {
-	common.SysLog("Initializing leaderboard cache...")
-	RefreshLeaderboardCache()
-	common.SysLog("Leaderboard cache initialized")
+	common.SysLog("Leaderboard cache will be initialized in background...")
+	go func() {
+		// Delay initialization to allow service to start first
+		time.Sleep(30 * time.Second)
+		common.SysLog("Starting background leaderboard cache initialization...")
+		RefreshLeaderboardCache()
+		common.SysLog("Leaderboard cache initialized")
+	}()
 }
 
 // RefreshLeaderboardCache refreshes all cached leaderboard data
