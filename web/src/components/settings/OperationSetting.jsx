@@ -27,6 +27,7 @@ import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
 import SettingsLeaderboard from '../../pages/Setting/Operation/SettingsLeaderboard';
+import SettingsAppeals from '../../pages/Setting/Operation/SettingsAppeals';
 import { API, showError, toBoolean } from '../../helpers';
 
 const OperationSetting = () => {
@@ -155,6 +156,10 @@ const OperationSetting = () => {
         <Card style={{ marginTop: '10px' }}>
           <SettingsLeaderboard options={inputs} refresh={onRefresh} />
         </Card>
+        {/* 申诉管理 */}
+        <div style={{ marginTop: '10px' }}>
+          <SettingsAppeals />
+        </div>
       </Spin>
     </>
   );

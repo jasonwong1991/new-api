@@ -27,6 +27,7 @@ import TutorialTab from './components/TutorialTab';
 import LeaderboardTab from './components/LeaderboardTab';
 import ProjectCard from './components/ProjectCard';
 import FAQTab from './components/FAQTab';
+import BanListTab from './components/BanListTab';
 
 const Home = () => {
   const { t } = useTranslation();
@@ -74,6 +75,9 @@ const Home = () => {
             </TabPane>
             <TabPane tab={t('站点使用排行')} itemKey='leaderboard'>
               <LeaderboardTab />
+            </TabPane>
+            <TabPane tab={t('封禁名单')} itemKey='banlist'>
+              <BanListTab />
             </TabPane>
           </Tabs>
         </Card>

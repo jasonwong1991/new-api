@@ -26,6 +26,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/leaderboard", controller.GetUsageLeaderboard)
 		apiRouter.GET("/leaderboard/models", controller.GetModelLeaderboard)
 		apiRouter.GET("/leaderboard/balance", controller.GetBalanceLeaderboard)
+		apiRouter.GET("/ban-list", controller.GetBanList)
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
 		apiRouter.GET("/pricing", middleware.TryUserAuth(), controller.GetPricing)
@@ -98,6 +99,10 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/2fa/enable", controller.Enable2FA)
 				selfRoute.POST("/2fa/disable", controller.Disable2FA)
 				selfRoute.POST("/2fa/backup_codes", controller.RegenerateBackupCodes)
+
+				// Appeal routes
+				selfRoute.POST("/appeal", controller.SubmitAppeal)
+				selfRoute.GET("/appeal", controller.GetMyAppeals)
 			}
 
 			adminRoute := userRoute.Group("/")
@@ -119,6 +124,16 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.DELETE("/:id/2fa", controller.AdminDisable2FA)
 			}
 		}
+
+		// Appeal admin routes
+		appealRoute := apiRouter.Group("/appeal")
+		appealRoute.Use(middleware.AdminAuth())
+		{
+			appealRoute.GET("/", controller.GetAllAppeals)
+			appealRoute.POST("/:id/approve", controller.ApproveAppeal)
+			appealRoute.POST("/:id/reject", controller.RejectAppeal)
+		}
+
 		optionRoute := apiRouter.Group("/option")
 		optionRoute.Use(middleware.RootAuth())
 		{

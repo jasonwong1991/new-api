@@ -1061,3 +1061,42 @@ func GetUserBalanceRank(userId int) (int, *BalanceLeaderboardUser, error) {
 		Quota:           user.Quota,
 	}, nil
 }
+
+type BannedUser struct {
+	Id              int    `json:"id"`
+	DisplayName     string `json:"display_name"`
+	LinuxDOUsername string `json:"linux_do_username"`
+	LinuxDOAvatar   string `json:"linux_do_avatar"`
+	BanReason       string `json:"ban_reason"`
+	HasPendingAppeal bool  `json:"has_pending_appeal"`
+}
+
+func GetBannedUsers() ([]BannedUser, error) {
+	var users []struct {
+		Id              int    `json:"id"`
+		DisplayName     string `json:"display_name"`
+		LinuxDOUsername string `json:"linux_do_username"`
+		LinuxDOAvatar   string `json:"linux_do_avatar"`
+		Remark          string `json:"remark"`
+	}
+	err := DB.Model(&User{}).
+		Select("id, display_name, linux_do_username, linux_do_avatar, remark").
+		Where("status = ?", common.UserStatusDisabled).
+		Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]BannedUser, len(users))
+	for i, u := range users {
+		result[i] = BannedUser{
+			Id:              u.Id,
+			DisplayName:     u.DisplayName,
+			LinuxDOUsername: u.LinuxDOUsername,
+			LinuxDOAvatar:   u.LinuxDOAvatar,
+			BanReason:       u.Remark,
+			HasPendingAppeal: HasPendingAppeal(u.Id),
+		}
+	}
+	return result, nil
+}
