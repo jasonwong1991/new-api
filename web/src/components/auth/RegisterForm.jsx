@@ -64,6 +64,7 @@ const RegisterForm = () => {
     email: '',
     verification_code: '',
     wechat_verification_code: '',
+    invitation_code: '',
   });
   const { username, password, password2 } = inputs;
   const [userState, userDispatch] = useContext(UserContext);
@@ -108,6 +109,7 @@ const RegisterForm = () => {
   const [showEmailVerification, setShowEmailVerification] = useState(() => {
     return status.email_verification ?? false;
   });
+  const [invitationCodeRequired, setInvitationCodeRequired] = useState(false);
 
   useEffect(() => {
     setShowEmailVerification(status.email_verification);
@@ -115,10 +117,12 @@ const RegisterForm = () => {
       setTurnstileEnabled(true);
       setTurnstileSiteKey(status.turnstile_site_key);
     }
-    
+
     // 从 status 获取用户协议和隐私政策的启用状态
     setHasUserAgreement(status.user_agreement_enabled || false);
     setHasPrivacyPolicy(status.privacy_policy_enabled || false);
+    // 从 status 获取邀请码是否必填
+    setInvitationCodeRequired(status.invitation_code_required || false);
   }, [status]);
 
   useEffect(() => {
@@ -249,6 +253,10 @@ const RegisterForm = () => {
     if (githubButtonDisabled) {
       return;
     }
+    if (invitationCodeRequired && !inputs.invitation_code) {
+      showInfo(t('请先填写邀请码'));
+      return;
+    }
     setGithubLoading(true);
     setGithubButtonDisabled(true);
     setGithubButtonText(t('正在跳转 GitHub...'));
@@ -261,34 +269,46 @@ const RegisterForm = () => {
       setGithubButtonDisabled(true);
     }, 20000);
     try {
-      onGitHubOAuthClicked(status.github_client_id);
+      onGitHubOAuthClicked(status.github_client_id, inputs.invitation_code);
     } finally {
       setTimeout(() => setGithubLoading(false), 3000);
     }
   };
 
   const handleDiscordClick = () => {
+    if (invitationCodeRequired && !inputs.invitation_code) {
+      showInfo(t('请先填写邀请码'));
+      return;
+    }
     setDiscordLoading(true);
     try {
-      onDiscordOAuthClicked(status.discord_client_id);
+      onDiscordOAuthClicked(status.discord_client_id, inputs.invitation_code);
     } finally {
       setTimeout(() => setDiscordLoading(false), 3000);
     }
   };
 
   const handleOIDCClick = () => {
+    if (invitationCodeRequired && !inputs.invitation_code) {
+      showInfo(t('请先填写邀请码'));
+      return;
+    }
     setOidcLoading(true);
     try {
-      onOIDCClicked(status.oidc_authorization_endpoint, status.oidc_client_id);
+      onOIDCClicked(status.oidc_authorization_endpoint, status.oidc_client_id, false, inputs.invitation_code);
     } finally {
       setTimeout(() => setOidcLoading(false), 3000);
     }
   };
 
   const handleLinuxDOClick = () => {
+    if (invitationCodeRequired && !inputs.invitation_code) {
+      showInfo(t('请先填写邀请码'));
+      return;
+    }
     setLinuxdoLoading(true);
     try {
-      onLinuxDOOAuthClicked(status.linuxdo_client_id);
+      onLinuxDOOAuthClicked(status.linuxdo_client_id, inputs.invitation_code);
     } finally {
       setTimeout(() => setLinuxdoLoading(false), 3000);
     }
@@ -360,6 +380,18 @@ const RegisterForm = () => {
             </div>
             <div className='px-2 py-8'>
               <div className='space-y-3'>
+                {invitationCodeRequired && (
+                  <Form className='mb-4'>
+                    <Form.Input
+                      field='invitation_code'
+                      label={t('邀请码')}
+                      placeholder={t('请输入邀请码')}
+                      name='invitation_code'
+                      onChange={(value) => handleChange('invitation_code', value)}
+                      prefix={<IconKey />}
+                    />
+                  </Form>
+                )}
                 {status.wechat_login && (
                   <Button
                     theme='outline'
@@ -560,6 +592,17 @@ const RegisterForm = () => {
                       prefix={<IconKey />}
                     />
                   </>
+                )}
+
+                {invitationCodeRequired && (
+                  <Form.Input
+                    field='invitation_code'
+                    label={t('邀请码')}
+                    placeholder={t('请输入邀请码')}
+                    name='invitation_code'
+                    onChange={(value) => handleChange('invitation_code', value)}
+                    prefix={<IconKey />}
+                  />
                 )}
 
                 {(hasUserAgreement || hasPrivacyPolicy) && (

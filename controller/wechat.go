@@ -90,12 +90,45 @@ func WeChatAuth(c *gin.Context) {
 		}
 	} else {
 		if common.RegisterEnabled {
+			// 邀请码验证 - WeChat 通过 query 参数传递
+			if common.InvitationCodeRequired {
+				invCode := c.Query("invitation_code")
+				if invCode == "" {
+					c.JSON(http.StatusOK, gin.H{
+						"success": false,
+						"message": "管理员开启了邀请注册，请先填写邀请码",
+					})
+					return
+				}
+				if err := model.CheckInvitationCode(invCode); err != nil {
+					c.JSON(http.StatusOK, gin.H{
+						"success": false,
+						"message": "邀请码无效: " + err.Error(),
+					})
+					return
+				}
+				// 先核销邀请码，防止竞态条件
+				if err := model.RedeemInvitationCode(invCode); err != nil {
+					c.JSON(http.StatusOK, gin.H{
+						"success": false,
+						"message": "邀请码核销失败: " + err.Error(),
+					})
+					return
+				}
+			}
 			user.Username = "wechat_" + strconv.Itoa(model.GetMaxUserId()+1)
 			user.DisplayName = "WeChat User"
 			user.Role = common.RoleCommonUser
 			user.Status = common.UserStatusEnabled
 
 			if err := user.Insert(0); err != nil {
+				// 用户创建失败，回滚邀请码
+				if common.InvitationCodeRequired {
+					invCode := c.Query("invitation_code")
+					if invCode != "" {
+						go model.RevertInvitationCode(invCode)
+					}
+				}
 				c.JSON(http.StatusOK, gin.H{
 					"success": false,
 					"message": err.Error(),

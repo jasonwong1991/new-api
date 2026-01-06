@@ -210,6 +210,22 @@ func SetApiRouter(router *gin.Engine) {
 			redemptionRoute.DELETE("/invalid", controller.DeleteInvalidRedemption)
 			redemptionRoute.DELETE("/:id", controller.DeleteRedemption)
 		}
+
+		invitationRoute := apiRouter.Group("/invitation")
+		{
+			invitationRoute.GET("/validate", controller.ValidateInvitationCode)
+			adminInvitationRoute := invitationRoute.Group("/")
+			adminInvitationRoute.Use(middleware.AdminAuth())
+			{
+				adminInvitationRoute.GET("/", controller.GetAllInvitationCodes)
+				adminInvitationRoute.GET("/search", controller.SearchInvitationCodes)
+				adminInvitationRoute.GET("/:id", controller.GetInvitationCode)
+				adminInvitationRoute.POST("/", controller.CreateInvitationCode)
+				adminInvitationRoute.PUT("/", controller.UpdateInvitationCode)
+				adminInvitationRoute.DELETE("/:id", controller.DeleteInvitationCode)
+			}
+		}
+
 		logRoute := apiRouter.Group("/log")
 		logRoute.GET("/", middleware.AdminAuth(), controller.GetAllLogs)
 		logRoute.DELETE("/", middleware.AdminAuth(), controller.DeleteHistoryLogs)

@@ -57,9 +57,9 @@ const BanListTab = () => {
 
   const columns = [
     {
-      title: t('用户'),
+      title: t('LinuxDO 用户'),
       dataIndex: 'linux_do_username',
-      key: 'user',
+      key: 'linux_do_user',
       render: (text, record) => (
         <Space>
           {record.linux_do_avatar ? (
@@ -67,16 +67,15 @@ const BanListTab = () => {
           ) : (
             <Avatar size='small' icon={<IconUser />} />
           )}
-          <div>
-            <Text strong>{text || record.display_name || '-'}</Text>
-            {record.display_name && text && record.display_name !== text && (
-              <Text type='tertiary' size='small' style={{ display: 'block' }}>
-                {record.display_name}
-              </Text>
-            )}
-          </div>
+          <Text strong>{text || '-'}</Text>
         </Space>
       ),
+    },
+    {
+      title: t('站内用户名'),
+      dataIndex: 'display_name',
+      key: 'display_name',
+      render: (text) => <Text>{text || '-'}</Text>,
     },
     {
       title: t('封禁理由'),

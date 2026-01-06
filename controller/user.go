@@ -189,6 +189,23 @@ func Register(c *gin.Context) {
 			return
 		}
 	}
+	// 邀请码验证
+	if common.InvitationCodeRequired {
+		if user.InvitationCode == "" {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "管理员开启了邀请注册，请输入邀请码",
+			})
+			return
+		}
+		if err := model.CheckInvitationCode(user.InvitationCode); err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	}
 	exist, err := model.CheckUserExistOrDeleted(user.Username, user.Email)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -205,6 +222,16 @@ func Register(c *gin.Context) {
 		})
 		return
 	}
+	// 先核销邀请码，防止竞态条件
+	if common.InvitationCodeRequired && user.InvitationCode != "" {
+		if err := model.RedeemInvitationCode(user.InvitationCode); err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "邀请码核销失败: " + err.Error(),
+			})
+			return
+		}
+	}
 	affCode := user.AffCode // this code is the inviter's code, not the user's own code
 	inviterId, _ := model.GetUserIdByAffCode(affCode)
 	cleanUser := model.User{
@@ -218,6 +245,10 @@ func Register(c *gin.Context) {
 		cleanUser.Email = user.Email
 	}
 	if err := cleanUser.Insert(inviterId); err != nil {
+		// 用户创建失败，回滚邀请码
+		if common.InvitationCodeRequired && user.InvitationCode != "" {
+			go model.RevertInvitationCode(user.InvitationCode)
+		}
 		common.ApiError(c, err)
 		return
 	}

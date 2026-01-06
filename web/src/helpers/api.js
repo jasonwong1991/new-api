@@ -223,11 +223,18 @@ export const processGroupsData = (data, userGroup) => {
 
 // 原来components中的utils.js
 
-export async function getOAuthState() {
+export async function getOAuthState(invitationCode = '') {
   let path = '/api/oauth/state';
+  let params = [];
   let affCode = localStorage.getItem('aff');
   if (affCode && affCode.length > 0) {
-    path += `?aff=${affCode}`;
+    params.push(`aff=${affCode}`);
+  }
+  if (invitationCode && invitationCode.length > 0) {
+    params.push(`invitation_code=${invitationCode}`);
+  }
+  if (params.length > 0) {
+    path += `?${params.join('&')}`;
   }
   const res = await API.get(path);
   const { success, message, data } = res.data;
@@ -239,8 +246,8 @@ export async function getOAuthState() {
   }
 }
 
-export async function onDiscordOAuthClicked(client_id) {
-  const state = await getOAuthState();
+export async function onDiscordOAuthClicked(client_id, invitationCode = '') {
+  const state = await getOAuthState(invitationCode);
   if (!state) return;
   const redirect_uri = `${window.location.origin}/oauth/discord`;
   const response_type = 'code';
@@ -250,8 +257,8 @@ export async function onDiscordOAuthClicked(client_id) {
   );
 }
 
-export async function onOIDCClicked(auth_url, client_id, openInNewTab = false) {
-  const state = await getOAuthState();
+export async function onOIDCClicked(auth_url, client_id, openInNewTab = false, invitationCode = '') {
+  const state = await getOAuthState(invitationCode);
   if (!state) return;
   const url = new URL(auth_url);
   url.searchParams.set('client_id', client_id);
@@ -266,16 +273,16 @@ export async function onOIDCClicked(auth_url, client_id, openInNewTab = false) {
   }
 }
 
-export async function onGitHubOAuthClicked(github_client_id) {
-  const state = await getOAuthState();
+export async function onGitHubOAuthClicked(github_client_id, invitationCode = '') {
+  const state = await getOAuthState(invitationCode);
   if (!state) return;
   window.open(
     `https://github.com/login/oauth/authorize?client_id=${github_client_id}&state=${state}&scope=user:email`,
   );
 }
 
-export async function onLinuxDOOAuthClicked(linuxdo_client_id) {
-  const state = await getOAuthState();
+export async function onLinuxDOOAuthClicked(linuxdo_client_id, invitationCode = '') {
+  const state = await getOAuthState(invitationCode);
   if (!state) return;
   window.open(
     `https://connect.linux.do/oauth2/authorize?response_type=code&client_id=${linuxdo_client_id}&state=${state}`,

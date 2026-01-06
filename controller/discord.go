@@ -141,6 +141,32 @@ func DiscordOAuth(c *gin.Context) {
 		}
 	} else {
 		if common.RegisterEnabled {
+			// 邀请码验证
+			if common.InvitationCodeRequired {
+				invCode, ok := session.Get("invitation_code").(string)
+				if !ok || invCode == "" {
+					c.JSON(http.StatusOK, gin.H{
+						"success": false,
+						"message": "管理员开启了邀请注册，请先填写邀请码",
+					})
+					return
+				}
+				if err := model.CheckInvitationCode(invCode); err != nil {
+					c.JSON(http.StatusOK, gin.H{
+						"success": false,
+						"message": "邀请码无效: " + err.Error(),
+					})
+					return
+				}
+				// 先核销邀请码，防止竞态条件
+				if err := model.RedeemInvitationCode(invCode); err != nil {
+					c.JSON(http.StatusOK, gin.H{
+						"success": false,
+						"message": "邀请码核销失败: " + err.Error(),
+					})
+					return
+				}
+			}
 			if discordUser.ID != "" {
 				user.Username = discordUser.ID
 			} else {
@@ -153,6 +179,12 @@ func DiscordOAuth(c *gin.Context) {
 			}
 			err := user.Insert(0)
 			if err != nil {
+				// 用户创建失败，回滚邀请码
+				if common.InvitationCodeRequired {
+					if invCode, ok := session.Get("invitation_code").(string); ok && invCode != "" {
+						go model.RevertInvitationCode(invCode)
+					}
+				}
 				c.JSON(http.StatusOK, gin.H{
 					"success": false,
 					"message": err.Error(),
