@@ -71,7 +71,7 @@ source ~/.bashrc`,
         <List>
           <List.Item>
             <Text>
-              {t('1. 请确保在 "claude code" 专用分组创建 API Key')}
+              {t('1. 请确保在 "claude code" 专用分组创建 API Key（该分组仅用于 Claude Code CLI）')}
             </Text>
           </List.Item>
           <List.Item>

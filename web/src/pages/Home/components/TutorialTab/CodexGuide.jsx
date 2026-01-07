@@ -75,7 +75,7 @@ source ~/.bashrc`,
     <div className='space-y-4'>
       <Banner
         type='info'
-        description={t('OpenAI Codex CLI 是 OpenAI 官方推出的本地编程代理工具，支���通过自定义代理使用')}
+        description={t('OpenAI Codex CLI 是 OpenAI 官方推出的本地编程代理工具，支持通过自定义代理使用，推荐使用 cc-switch 进行管理')}
         className='mb-4'
       />
 
@@ -113,7 +113,7 @@ source ~/.bashrc`,
         <List className='mb-4'>
           <List.Item>
             <Text>
-              {t('1. 请确保在 "codex" 专用分组创建 API Key')}
+              {t('1. 请确保在 "codex" 专用分组创建 API Key（该分组仅支持 Codex CLI）')}
             </Text>
           </List.Item>
           <List.Item>
