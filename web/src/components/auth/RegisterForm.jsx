@@ -51,6 +51,7 @@ import LinuxDoIcon from '../common/logo/LinuxDoIcon';
 import WeChatIcon from '../common/logo/WeChatIcon';
 import TelegramLoginButton from 'react-telegram-login/src';
 import { UserContext } from '../../context/User';
+import { StatusContext } from '../../context/Status';
 import { useTranslation } from 'react-i18next';
 import { SiDiscord } from 'react-icons/si';
 
@@ -68,6 +69,7 @@ const RegisterForm = () => {
   });
   const { username, password, password2 } = inputs;
   const [userState, userDispatch] = useContext(UserContext);
+  const [statusState] = useContext(StatusContext);
   const [turnstileEnabled, setTurnstileEnabled] = useState(false);
   const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
@@ -101,29 +103,33 @@ const RegisterForm = () => {
     localStorage.setItem('aff', affCode);
   }
 
-  const [status] = useState(() => {
+  // 优先使用 Context 中的实时状态，回退到 localStorage
+  const status = statusState?.status || (() => {
     const savedStatus = localStorage.getItem('status');
     return savedStatus ? JSON.parse(savedStatus) : {};
-  });
+  })();
 
   const [showEmailVerification, setShowEmailVerification] = useState(() => {
     return status.email_verification ?? false;
   });
-  const [invitationCodeRequired, setInvitationCodeRequired] = useState(false);
+  const [invitationCodeRequired, setInvitationCodeRequired] = useState(
+    status.invitation_code_required || false
+  );
 
   useEffect(() => {
-    setShowEmailVerification(status.email_verification);
-    if (status.turnstile_check) {
+    const currentStatus = statusState?.status || status;
+    setShowEmailVerification(currentStatus.email_verification);
+    if (currentStatus.turnstile_check) {
       setTurnstileEnabled(true);
-      setTurnstileSiteKey(status.turnstile_site_key);
+      setTurnstileSiteKey(currentStatus.turnstile_site_key);
     }
 
     // 从 status 获取用户协议和隐私政策的启用状态
-    setHasUserAgreement(status.user_agreement_enabled || false);
-    setHasPrivacyPolicy(status.privacy_policy_enabled || false);
+    setHasUserAgreement(currentStatus.user_agreement_enabled || false);
+    setHasPrivacyPolicy(currentStatus.privacy_policy_enabled || false);
     // 从 status 获取邀请码是否必填
-    setInvitationCodeRequired(status.invitation_code_required || false);
-  }, [status]);
+    setInvitationCodeRequired(currentStatus.invitation_code_required || false);
+  }, [statusState?.status, status]);
 
   useEffect(() => {
     let countdownInterval = null;
