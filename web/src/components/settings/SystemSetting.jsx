@@ -244,10 +244,10 @@ const SystemSetting = () => {
     try {
       // 分离 checkbox 类型的选项和其他选项
       const checkboxOptions = options.filter((opt) =>
-        opt.key.toLowerCase().endsWith('enabled'),
+        opt.key.toLowerCase().endsWith('enabled') || opt.key === 'InvitationCodeRequired',
       );
       const otherOptions = options.filter(
-        (opt) => !opt.key.toLowerCase().endsWith('enabled'),
+        (opt) => !opt.key.toLowerCase().endsWith('enabled') && opt.key !== 'InvitationCodeRequired',
       );
 
       // 处理 checkbox 类型的选项
