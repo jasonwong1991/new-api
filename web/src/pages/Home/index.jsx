@@ -28,6 +28,7 @@ import LeaderboardTab from './components/LeaderboardTab';
 import ProjectCard from './components/ProjectCard';
 import FAQTab from './components/FAQTab';
 import BanListTab from './components/BanListTab';
+import FloatingStoreButton from './components/FloatingStoreButton';
 
 const Home = () => {
   const { t } = useTranslation();
@@ -56,6 +57,7 @@ const Home = () => {
 
   return (
     <div className='w-full max-w-7xl mx-auto px-4 py-8 mt-16'>
+      <FloatingStoreButton />
       <NoticeModal
         visible={noticeVisible}
         onClose={() => setNoticeVisible(false)}
