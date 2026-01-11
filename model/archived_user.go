@@ -82,7 +82,7 @@ func (au *ArchivedUser) Delete() error {
 func GetInactiveUsers(minDays int, startId int, endId int) ([]*User, error) {
 	threshold := time.Now().AddDate(0, 0, -minDays).Unix()
 	var users []*User
-	query := DB.Where("used_quota = 0 AND request_count = 0 AND (invitation_code_used IS NULL OR invitation_code_used = '') AND role = ? AND deleted_at IS NULL AND created_at <= ? AND created_at > 0",
+	query := DB.Where("used_quota = 0 AND request_count = 0 AND (invitation_code_used IS NULL OR invitation_code_used = '') AND role = ? AND deleted_at IS NULL AND (created_at = 0 OR created_at <= ?)",
 		common.RoleCommonUser, threshold)
 	if startId > 0 {
 		query = query.Where("id >= ?", startId)
@@ -97,7 +97,7 @@ func GetInactiveUsers(minDays int, startId int, endId int) ([]*User, error) {
 func CountInactiveUsers(minDays int, startId int, endId int) (int64, error) {
 	threshold := time.Now().AddDate(0, 0, -minDays).Unix()
 	var count int64
-	query := DB.Model(&User{}).Where("used_quota = 0 AND request_count = 0 AND (invitation_code_used IS NULL OR invitation_code_used = '') AND role = ? AND deleted_at IS NULL AND created_at <= ? AND created_at > 0",
+	query := DB.Model(&User{}).Where("used_quota = 0 AND request_count = 0 AND (invitation_code_used IS NULL OR invitation_code_used = '') AND role = ? AND deleted_at IS NULL AND (created_at = 0 OR created_at <= ?)",
 		common.RoleCommonUser, threshold)
 	if startId > 0 {
 		query = query.Where("id >= ?", startId)
