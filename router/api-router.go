@@ -52,15 +52,6 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.POST("/verify", middleware.UserAuth(), middleware.CriticalRateLimit(), controller.UniversalVerify)
 		apiRouter.GET("/verify/status", middleware.UserAuth(), controller.GetVerificationStatus)
 
-		// Chat room routes
-		chatRoute := apiRouter.Group("/chat")
-		chatRoute.Use(middleware.UserAuth())
-		{
-			chatRoute.GET("/config", controller.GetChatRoomConfig)
-			chatRoute.GET("/messages", controller.ListChatRoomMessages)
-			chatRoute.POST("/messages", controller.PostChatRoomMessage)
-		}
-
 		userRoute := apiRouter.Group("/user")
 		{
 			userRoute.POST("/register", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.Register)

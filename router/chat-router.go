@@ -17,5 +17,7 @@ func SetChatRouter(router *gin.Engine) {
 		chatRouter.POST("/images", middleware.UserAuth(), controller.UploadChatRoomImage)
 		chatRouter.GET("/images/:date/:name", controller.GetChatRoomImage)
 		chatRouter.POST("/announcement", middleware.AdminAuth(), controller.SetChatRoomAnnouncement)
+		chatRouter.GET("/messages", middleware.UserAuth(), controller.ListChatRoomMessages)
+		chatRouter.POST("/messages", middleware.UserAuth(), controller.PostChatRoomMessage)
 	}
 }
