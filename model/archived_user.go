@@ -234,3 +234,45 @@ func RestoreArchivedUser(archivedId int) error {
 		return nil
 	})
 }
+
+// FindArchivedUserByLinuxDOUsername finds archived user by LinuxDO username
+func FindArchivedUserByLinuxDOUsername(linuxDOUsername string) (*ArchivedUser, error) {
+	if linuxDOUsername == "" {
+		return nil, errors.New("LinuxDO username 不能为空")
+	}
+	var user ArchivedUser
+	err := DB.Where("linux_do_username = ?", linuxDOUsername).Order("archived_at DESC").First(&user).Error
+	return &user, err
+}
+
+// RecoverQuotaToUser transfers quota from archived user to current user
+func RecoverQuotaToUser(currentUserId int, archivedId int) (int, error) {
+	var recoveredQuota int
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var currentUser User
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").First(&currentUser, currentUserId).Error; err != nil {
+			return errors.New("当前用户不存在")
+		}
+
+		var archivedUser ArchivedUser
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").First(&archivedUser, archivedId).Error; err != nil {
+			return errors.New("归档用户不存在")
+		}
+
+		if currentUser.LinuxDOUsername == "" || currentUser.LinuxDOUsername != archivedUser.LinuxDOUsername {
+			return errors.New("LinuxDO 用户名不匹配，无法恢复额度")
+		}
+
+		if archivedUser.Quota <= 0 {
+			return errors.New("归档用户没有可恢复的额度")
+		}
+
+		recoveredQuota = archivedUser.Quota
+		if err := tx.Model(&currentUser).Update("quota", gorm.Expr("quota + ?", recoveredQuota)).Error; err != nil {
+			return err
+		}
+
+		return tx.Delete(&archivedUser).Error
+	})
+	return recoveredQuota, err
+}

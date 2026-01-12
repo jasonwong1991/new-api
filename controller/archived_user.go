@@ -24,12 +24,14 @@ type CleanupRequest struct {
 }
 
 type ArchivedUserPublicInfo struct {
-	Username     string `json:"username"`
-	DisplayName  string `json:"display_name"`
-	Quota        int    `json:"quota"`
-	UsedQuota    int    `json:"used_quota"`
-	RequestCount int    `json:"request_count"`
-	ArchivedAt   int64  `json:"archived_at"`
+	Id              int    `json:"id"`
+	Username        string `json:"username"`
+	DisplayName     string `json:"display_name"`
+	Quota           int    `json:"quota"`
+	UsedQuota       int    `json:"used_quota"`
+	RequestCount    int    `json:"request_count"`
+	ArchivedAt      int64  `json:"archived_at"`
+	LinuxDOUsername string `json:"linux_do_username"`
 }
 
 func CheckArchivedUser(c *gin.Context) {
@@ -56,13 +58,58 @@ func CheckArchivedUser(c *gin.Context) {
 		"success": true,
 		"found":   true,
 		"data": ArchivedUserPublicInfo{
-			Username:     user.Username,
-			DisplayName:  user.DisplayName,
-			Quota:        user.Quota,
-			UsedQuota:    user.UsedQuota,
-			RequestCount: user.RequestCount,
-			ArchivedAt:   user.ArchivedAt,
+			Id:              user.Id,
+			Username:        user.Username,
+			DisplayName:     user.DisplayName,
+			Quota:           user.Quota,
+			UsedQuota:       user.UsedQuota,
+			RequestCount:    user.RequestCount,
+			ArchivedAt:      user.ArchivedAt,
+			LinuxDOUsername: user.LinuxDOUsername,
 		},
+	})
+}
+
+type RecoverQuotaRequest struct {
+	ArchivedId int `json:"archived_id" binding:"required"`
+}
+
+func RecoverQuotaFromArchived(c *gin.Context) {
+	userId := c.GetInt("id")
+	if userId == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "请先登录",
+		})
+		return
+	}
+
+	var req RecoverQuotaRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "无效的请求参数",
+		})
+		return
+	}
+
+	if req.ArchivedId <= 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "无效的归档用户ID",
+		})
+		return
+	}
+
+	recoveredQuota, err := model.RecoverQuotaToUser(userId, req.ArchivedId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	common.ApiSuccess(c, gin.H{
+		"message":         "额度恢复成功",
+		"recovered_quota": recoveredQuota,
 	})
 }
 

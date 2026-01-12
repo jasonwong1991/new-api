@@ -237,6 +237,7 @@ func SetApiRouter(router *gin.Engine) {
 
 		archivedUserRoute := apiRouter.Group("/archived-user")
 		archivedUserRoute.GET("/check", controller.CheckArchivedUser)
+		archivedUserRoute.POST("/recover-quota", middleware.UserAuth(), controller.RecoverQuotaFromArchived)
 		archivedUserRoute.Use(middleware.AdminAuth())
 		{
 			archivedUserRoute.GET("/", controller.GetAllArchivedUsers)

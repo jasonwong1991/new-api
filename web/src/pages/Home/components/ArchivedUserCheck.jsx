@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { Input, Button, Modal, Typography } from '@douyinfe/semi-ui';
+import React, { useState, useEffect } from 'react';
+import { Input, Button, Modal, Typography, Toast } from '@douyinfe/semi-ui';
 import { IconSearch } from '@douyinfe/semi-icons';
 import { API } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
 import { renderQuota } from '../../../helpers/render';
 import { timestamp2string } from '../../../helpers/utils';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 const ArchivedUserCheck = () => {
   const { t } = useTranslation();
@@ -15,6 +15,20 @@ const ArchivedUserCheck = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [result, setResult] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [recoverLoading, setRecoverLoading] = useState(false);
+  const [showRecoverConfirm, setShowRecoverConfirm] = useState(false);
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        setCurrentUser(JSON.parse(userData));
+      } catch {
+        setCurrentUser(null);
+      }
+    }
+  }, []);
 
   const handleSearch = async () => {
     if (!keyword.trim()) return;
@@ -30,10 +44,45 @@ const ArchivedUserCheck = () => {
       } else {
         setNotFound(true);
       }
-    } catch (error) {
+    } catch {
       setNotFound(true);
     }
     setLoading(false);
+  };
+
+  const canRecover = () => {
+    if (!currentUser || !result) return false;
+    if (!currentUser.linux_do_username || !result.linux_do_username) return false;
+    return currentUser.linux_do_username === result.linux_do_username;
+  };
+
+  const handleRecoverQuota = () => {
+    setShowRecoverConfirm(true);
+  };
+
+  const confirmRecoverQuota = async () => {
+    setShowRecoverConfirm(false);
+    setRecoverLoading(true);
+
+    try {
+      const res = await API.post('/api/archived-user/recover-quota', {
+        archived_id: result.id,
+      });
+      const { success, message, data } = res.data;
+
+      if (success) {
+        Toast.success(t('额度恢复成功！已恢复 {{quota}}', { quota: renderQuota(data?.recovered_quota || 0, 2) }));
+        setModalVisible(false);
+        setResult(null);
+        setKeyword('');
+      } else {
+        Toast.error(message || t('恢复失败，请稍后重试'));
+      }
+    } catch (error) {
+      Toast.error(error.response?.data?.message || t('恢复失败，请稍后重试'));
+    }
+
+    setRecoverLoading(false);
   };
 
   return (
@@ -69,7 +118,22 @@ const ArchivedUserCheck = () => {
         visible={modalVisible}
         onCancel={() => setModalVisible(false)}
         footer={
-          <Button onClick={() => setModalVisible(false)}>{t('我知道了')}</Button>
+          <div className='flex gap-2 justify-end'>
+            {canRecover() && (
+              <Button
+                type='primary'
+                theme='solid'
+                onClick={handleRecoverQuota}
+                loading={recoverLoading}
+                disabled={recoverLoading}
+              >
+                {t('恢复额度')}
+              </Button>
+            )}
+            <Button onClick={() => setModalVisible(false)}>
+              {t('我知道了')}
+            </Button>
+          </div>
         }
       >
         {result && (
@@ -82,6 +146,17 @@ const ArchivedUserCheck = () => {
                 {t('由于账号不活跃，已被清理')}
               </Text>
             </div>
+
+            {canRecover() && (
+              <div
+                className='p-3 rounded'
+                style={{ background: 'var(--semi-color-success-light-default)' }}
+              >
+                <Text type='success'>
+                  {t('检测到您的 LinuxDO 账号与此归档账号匹配，可以恢复额度到当前账号')}
+                </Text>
+              </div>
+            )}
 
             <div className='grid grid-cols-2 gap-2'>
               <div>
@@ -111,6 +186,39 @@ const ArchivedUserCheck = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        title={t('确认恢复额度')}
+        visible={showRecoverConfirm}
+        onCancel={() => setShowRecoverConfirm(false)}
+        footer={
+          <div className='flex gap-2 justify-end'>
+            <Button onClick={() => setShowRecoverConfirm(false)}>
+              {t('取消')}
+            </Button>
+            <Button
+              type='primary'
+              theme='solid'
+              onClick={confirmRecoverQuota}
+            >
+              {t('确认恢复')}
+            </Button>
+          </div>
+        }
+      >
+        <div className='space-y-3'>
+          <Text>{t('确认要恢复此账号的额度吗？')}</Text>
+          {result && (
+            <div className='p-3 rounded bg-gray-100 dark:bg-gray-800'>
+              <Text type='tertiary' size='small'>{t('将恢复额度')}</Text>
+              <Text className='block text-lg font-semibold'>{renderQuota(result.quota, 2)}</Text>
+            </div>
+          )}
+          <Text type='tertiary' size='small'>
+            {t('恢复后，额度将添加到您当前账号，归档记录将被删除。')}
+          </Text>
+        </div>
       </Modal>
     </div>
   );
