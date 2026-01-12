@@ -27,6 +27,7 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
       ldcStore: true,
       console: true,
       pricing: true,
+      chatRoom: true,
       docs: true,
       about: true,
     };
@@ -56,6 +57,11 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
         itemKey: 'pricing',
         to: '/pricing',
       },
+      {
+        text: t('聊天室'),
+        itemKey: 'chatRoom',
+        to: '/chat-room',
+      },
       ...(docsLink
         ? [
             {
@@ -76,18 +82,21 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
     // 根据配置过滤导航链接
     return allLinks.filter((link) => {
       if (link.itemKey === 'docs') {
-        return docsLink && modules.docs;
+        return docsLink && modules.docs !== false;
       }
       if (link.itemKey === 'pricing') {
         // 支持新的pricing配置格式
         return typeof modules.pricing === 'object'
-          ? modules.pricing.enabled
-          : modules.pricing;
+          ? modules.pricing.enabled !== false
+          : modules.pricing !== false;
       }
       if (link.itemKey === 'ldcStore') {
         return modules.ldcStore !== false;
       }
-      return modules[link.itemKey] === true;
+      if (link.itemKey === 'chatRoom') {
+        return modules.chatRoom !== false;
+      }
+      return modules[link.itemKey] !== false;
     });
   }, [t, docsLink, headerNavModules]);
 
