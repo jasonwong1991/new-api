@@ -268,7 +268,7 @@ func RecoverQuotaToUser(currentUserId int, archivedId int) (int, error) {
 		}
 
 		recoveredQuota = archivedUser.Quota
-		if err := tx.Model(&currentUser).Update("quota", gorm.Expr("quota + ?", recoveredQuota)).Error; err != nil {
+		if err := tx.Model(&currentUser).Update("quota", recoveredQuota).Error; err != nil {
 			return err
 		}
 
