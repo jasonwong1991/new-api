@@ -47,7 +47,7 @@ const ChatRoomPage = () => {
     statusState?.status?.chat_room_max_message_length || 8000,
   );
 
-  const { messages, connectionState, lastError, sendMessage, reconnect } =
+  const { messages, connectionState, lastError, announcement, sendMessage, reconnect } =
     useChatRoomSocket({
       enabled,
       messageLimit,
@@ -284,6 +284,16 @@ const ChatRoomPage = () => {
             />
           </div>
         </div>
+
+        {/* Announcement */}
+        {announcement && (
+          <div className="px-4 py-2 border-b border-semi-color-border bg-amber-50 dark:bg-amber-900/20">
+            <div className="flex items-start gap-2">
+              <Text type="warning" strong size="small">📢</Text>
+              <Text size="small" className="flex-1">{announcement}</Text>
+            </div>
+          </div>
+        )}
 
         {/* Messages Area */}
         <div

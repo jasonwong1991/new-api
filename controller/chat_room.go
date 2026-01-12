@@ -30,6 +30,7 @@ type chatRoomConfigDTO struct {
 	MaxMessageLength int    `json:"max_message_length"`
 	WsPath           string `json:"ws_path"`
 	ImageEnabled     bool   `json:"image_enabled"`
+	Announcement     string `json:"announcement"`
 }
 
 type chatRoomWsEvent struct {
@@ -166,6 +167,7 @@ func GetChatRoomConfig(c *gin.Context) {
 		MaxMessageLength: normalizeChatRoomMaxMessageLength(cfg.MaxMessageLength),
 		WsPath:           "/api/chat/ws",
 		ImageEnabled:     cfg.ImageEnabled,
+		Announcement:     cfg.Announcement,
 	})
 }
 
@@ -485,6 +487,7 @@ func ChatRoomWs(c *gin.Context) {
 				MaxMessageLength: normalizeChatRoomMaxMessageLength(cfg.MaxMessageLength),
 				WsPath:           "/api/chat/ws",
 				ImageEnabled:     cfg.ImageEnabled,
+				Announcement:     cfg.Announcement,
 			},
 			Messages: initMessages,
 		},
@@ -617,4 +620,42 @@ func trimAndCleanup(room string, cfg *chat_room_setting.ChatRoomSetting) {
 	if cfg.ImageCacheMaxBytes > 0 {
 		_ = model.TrimImageCacheBySize(cfg.ImageCacheMaxBytes, cfg.ImageDir)
 	}
+}
+
+type SetAnnouncementRequest struct {
+	Announcement string `json:"announcement"`
+}
+
+func SetChatRoomAnnouncement(c *gin.Context) {
+	var req SetAnnouncementRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiErrorMsg(c, "无效的请求参数")
+		return
+	}
+
+	if err := model.UpdateOption("chat_room_setting.announcement", req.Announcement); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	cfg := chat_room_setting.GetChatRoomSetting()
+	cfg.Announcement = req.Announcement
+
+	broadcastAnnouncement(req.Announcement)
+
+	common.ApiSuccess(c, gin.H{
+		"message":      "公告设置成功",
+		"announcement": req.Announcement,
+	})
+}
+
+func broadcastAnnouncement(announcement string) {
+	payload, err := json.Marshal(chatRoomWsEvent{
+		Type: "announcement",
+		Data: gin.H{"announcement": announcement},
+	})
+	if err != nil {
+		return
+	}
+	service.GetChatRoomHub().Broadcast(payload)
 }

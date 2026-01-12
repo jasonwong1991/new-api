@@ -48,6 +48,7 @@ const OtherSetting = () => {
     Footer: '',
     About: '',
     HomePageContent: '',
+    ChatRoomAnnouncement: '',
   });
   let [loading, setLoading] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -82,6 +83,7 @@ const OtherSetting = () => {
     About: false,
     Footer: false,
     CheckUpdate: false,
+    ChatRoomAnnouncement: false,
   });
   const handleInputChange = async (value, e) => {
     const name = e.target.id;
@@ -228,6 +230,32 @@ const OtherSetting = () => {
     }
   };
 
+  // 聊天室公告
+  const submitChatRoomAnnouncement = async () => {
+    try {
+      setLoadingInput((loadingInput) => ({
+        ...loadingInput,
+        ChatRoomAnnouncement: true,
+      }));
+      const res = await API.post('/api/chat/announcement', {
+        announcement: inputs.ChatRoomAnnouncement,
+      });
+      if (res.data.success) {
+        showSuccess(t('聊天室公告已更新'));
+      } else {
+        showError(res.data.message || t('聊天室公告更新失败'));
+      }
+    } catch (error) {
+      console.error(t('聊天室公告更新失败'), error);
+      showError(t('聊天室公告更新失败'));
+    } finally {
+      setLoadingInput((loadingInput) => ({
+        ...loadingInput,
+        ChatRoomAnnouncement: false,
+      }));
+    }
+  };
+
   const checkUpdate = async () => {
     try {
       setLoadingInput((loadingInput) => ({
@@ -288,6 +316,15 @@ const OtherSetting = () => {
           newInputs[item.key] = item.value;
         }
       });
+      // 获取聊天室公告
+      try {
+        const chatRes = await API.get('/api/chat/config');
+        if (chatRes.data.success && chatRes.data.data) {
+          newInputs.ChatRoomAnnouncement = chatRes.data.data.announcement || '';
+        }
+      } catch (e) {
+        // ignore
+      }
       setInputs(newInputs);
       formAPISettingGeneral.current.setValues(newInputs);
       formAPIPersonalization.current.setValues(newInputs);
@@ -408,6 +445,21 @@ const OtherSetting = () => {
                 loading={loadingInput[LEGAL_PRIVACY_POLICY_KEY]}
               >
                 {t('设置隐私政策')}
+              </Button>
+              <Form.TextArea
+                label={t('聊天室公告')}
+                placeholder={t('在此输入聊天室置顶公告内容')}
+                field={'ChatRoomAnnouncement'}
+                onChange={handleInputChange}
+                style={{ fontFamily: 'JetBrains Mono, Consolas' }}
+                autosize={{ minRows: 2, maxRows: 6 }}
+                helpText={t('设置后将在聊天室顶部显示公告，留空则不显示')}
+              />
+              <Button
+                onClick={submitChatRoomAnnouncement}
+                loading={loadingInput['ChatRoomAnnouncement']}
+              >
+                {t('设置聊天室公告')}
               </Button>
             </Form.Section>
           </Card>

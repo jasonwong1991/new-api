@@ -6,6 +6,8 @@ type ChatRoomSetting struct {
 	Enabled          bool   `json:"enabled"`
 	MessageLimit     int    `json:"message_limit"`
 	MaxMessageLength int    `json:"max_message_length"`
+	// Announcement settings
+	Announcement string `json:"announcement"`
 	// Image settings
 	ImageEnabled       bool     `json:"image_enabled"`
 	ImageDir           string   `json:"image_dir"`
@@ -20,6 +22,7 @@ var defaultChatRoomSetting = ChatRoomSetting{
 	Enabled:            true,
 	MessageLimit:       1000,
 	MaxMessageLength:   8000,
+	Announcement:       "",
 	ImageEnabled:       true,
 	ImageDir:           "data/chat_room_images",
 	ImageMaxBytes:      10 << 20,

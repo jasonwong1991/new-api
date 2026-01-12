@@ -44,6 +44,7 @@ export function useChatRoomSocket({ enabled, messageLimit, room = 'global' }) {
   const [messages, setMessages] = useState([]);
   const [connectionState, setConnectionState] = useState('disconnected');
   const [lastError, setLastError] = useState('');
+  const [announcement, setAnnouncement] = useState('');
 
   const cleanup = useCallback(() => {
     if (reconnectTimerRef.current) {
@@ -99,13 +100,20 @@ export function useChatRoomSocket({ enabled, messageLimit, room = 'global' }) {
         if (!payload || typeof payload.type !== 'string') return;
         if (payload.type === 'init') {
           const initMessages = payload?.data?.messages || [];
+          const initAnnouncement = payload?.data?.config?.announcement || '';
           setMessages(clampMessages(initMessages, messageLimit));
+          setAnnouncement(initAnnouncement);
           return;
         }
         if (payload.type === 'message') {
           const m = payload?.data?.message;
           if (!m) return;
           setMessages((prev) => clampMessages([...prev, m], messageLimit));
+          return;
+        }
+        if (payload.type === 'announcement') {
+          const newAnnouncement = payload?.data?.announcement || '';
+          setAnnouncement(newAnnouncement);
           return;
         }
         if (payload.type === 'error') {
@@ -163,6 +171,7 @@ export function useChatRoomSocket({ enabled, messageLimit, room = 'global' }) {
     messages,
     connectionState,
     lastError,
+    announcement,
     sendMessage,
     reconnect,
   };
