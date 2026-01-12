@@ -20,14 +20,17 @@ const ArchivedUserCheck = () => {
   const [showRecoverConfirm, setShowRecoverConfirm] = useState(false);
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
+    const fetchCurrentUser = async () => {
       try {
-        setCurrentUser(JSON.parse(userData));
+        const res = await API.get('/api/user/self');
+        if (res.data.success) {
+          setCurrentUser(res.data.data);
+        }
       } catch {
         setCurrentUser(null);
       }
-    }
+    };
+    fetchCurrentUser();
   }, []);
 
   const handleSearch = async () => {
