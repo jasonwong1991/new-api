@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { API, showError, showSuccess } from '../../helpers';
 import { ITEMS_PER_PAGE } from '../../constants';
@@ -47,7 +47,15 @@ export const useUsersData = () => {
   const formInitValues = {
     searchKeyword: '',
     searchGroup: '',
+    searchStatus: '',
   };
+
+  // Status options
+  const statusOptions = useMemo(() => [
+    { label: t('正常'), value: 'enabled' },
+    { label: t('禁用'), value: 'disabled' },
+    { label: t('注销'), value: 'deleted' },
+  ], [t]);
 
   // Form API reference
   const [formApi, setFormApi] = useState(null);
@@ -58,6 +66,7 @@ export const useUsersData = () => {
     return {
       searchKeyword: formValues.searchKeyword || '',
       searchGroup: formValues.searchGroup || '',
+      searchStatus: formValues.searchStatus || '',
     };
   };
 
@@ -85,28 +94,30 @@ export const useUsersData = () => {
     setLoading(false);
   };
 
-  // Search users with keyword and group
+  // Search users with keyword, group and status
   const searchUsers = async (
     startIdx,
     pageSize,
     searchKeyword = null,
     searchGroup = null,
+    searchStatus = null,
   ) => {
     // If no parameters passed, get values from form
-    if (searchKeyword === null || searchGroup === null) {
+    if (searchKeyword === null || searchGroup === null || searchStatus === null) {
       const formValues = getFormValues();
-      searchKeyword = formValues.searchKeyword;
-      searchGroup = formValues.searchGroup;
+      searchKeyword = searchKeyword ?? formValues.searchKeyword;
+      searchGroup = searchGroup ?? formValues.searchGroup;
+      searchStatus = searchStatus ?? formValues.searchStatus;
     }
 
-    if (searchKeyword === '' && searchGroup === '') {
-      // If keyword is blank, load files instead
+    if (searchKeyword === '' && searchGroup === '' && searchStatus === '') {
+      // If all filters are blank, load files instead
       await loadUsers(startIdx, pageSize);
       return;
     }
     setSearching(true);
     const res = await API.get(
-      `/api/user/search?keyword=${searchKeyword}&group=${searchGroup}&p=${startIdx}&page_size=${pageSize}`,
+      `/api/user/search?keyword=${searchKeyword}&group=${searchGroup}&status=${searchStatus}&p=${startIdx}&page_size=${pageSize}`,
     );
     const { success, message, data } = res.data;
     if (success) {
@@ -191,11 +202,11 @@ export const useUsersData = () => {
   // Handle page change
   const handlePageChange = (page) => {
     setActivePage(page);
-    const { searchKeyword, searchGroup } = getFormValues();
-    if (searchKeyword === '' && searchGroup === '') {
+    const { searchKeyword, searchGroup, searchStatus } = getFormValues();
+    if (searchKeyword === '' && searchGroup === '' && searchStatus === '') {
       loadUsers(page, pageSize).then();
     } else {
-      searchUsers(page, pageSize, searchKeyword, searchGroup).then();
+      searchUsers(page, pageSize, searchKeyword, searchGroup, searchStatus).then();
     }
   };
 
@@ -204,11 +215,12 @@ export const useUsersData = () => {
     localStorage.setItem('page-size', size + '');
     setPageSize(size);
     setActivePage(1);
-    loadUsers(activePage, size)
-      .then()
-      .catch((reason) => {
-        showError(reason);
-      });
+    const { searchKeyword, searchGroup, searchStatus } = getFormValues();
+    if (searchKeyword === '' && searchGroup === '' && searchStatus === '') {
+      await loadUsers(1, size);
+    } else {
+      await searchUsers(1, size, searchKeyword, searchGroup, searchStatus);
+    }
   };
 
   // Handle table row styling for disabled/deleted users
@@ -226,11 +238,11 @@ export const useUsersData = () => {
 
   // Refresh data
   const refresh = async (page = activePage) => {
-    const { searchKeyword, searchGroup } = getFormValues();
-    if (searchKeyword === '' && searchGroup === '') {
+    const { searchKeyword, searchGroup, searchStatus } = getFormValues();
+    if (searchKeyword === '' && searchGroup === '' && searchStatus === '') {
       await loadUsers(page, pageSize);
     } else {
-      await searchUsers(page, pageSize, searchKeyword, searchGroup);
+      await searchUsers(page, pageSize, searchKeyword, searchGroup, searchStatus);
     }
   };
 
@@ -283,6 +295,7 @@ export const useUsersData = () => {
     userCount,
     searching,
     groupOptions,
+    statusOptions,
 
     // Modal state
     showAddUser,
