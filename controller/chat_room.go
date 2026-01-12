@@ -169,6 +169,23 @@ func GetChatRoomConfig(c *gin.Context) {
 	})
 }
 
+func GetChatRoomMessageCount(c *gin.Context) {
+	cfg := chat_room_setting.GetChatRoomSetting()
+	if !cfg.Enabled {
+		common.ApiSuccess(c, gin.H{"count": 0, "enabled": false})
+		return
+	}
+
+	room := normalizeChatRoomRoom(c.Query("room"))
+	var count int64
+	if err := model.DB.Model(&model.ChatMessage{}).Where("room = ?", room).Count(&count).Error; err != nil {
+		common.ApiSuccess(c, gin.H{"count": 0, "enabled": true})
+		return
+	}
+
+	common.ApiSuccess(c, gin.H{"count": count, "enabled": true})
+}
+
 func ListChatRoomMessages(c *gin.Context) {
 	cfg := chat_room_setting.GetChatRoomSetting()
 	if !cfg.Enabled {

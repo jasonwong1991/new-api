@@ -29,6 +29,7 @@ import ProjectCard from './components/ProjectCard';
 import FAQTab from './components/FAQTab';
 import BanListTab from './components/BanListTab';
 import FloatingStoreButton from './components/FloatingStoreButton';
+import FloatingChatButton from './components/FloatingChatButton';
 import ArchivedUserCheck from './components/ArchivedUserCheck';
 
 const Home = () => {
@@ -59,6 +60,7 @@ const Home = () => {
   return (
     <div className='w-full max-w-7xl mx-auto px-4 py-8 mt-16'>
       <FloatingStoreButton />
+      <FloatingChatButton />
       <NoticeModal
         visible={noticeVisible}
         onClose={() => setNoticeVisible(false)}

@@ -11,6 +11,7 @@ func SetChatRouter(router *gin.Engine) {
 	chatRouter := router.Group("/api/chat")
 	chatRouter.Use(middleware.GlobalAPIRateLimit())
 	{
+		chatRouter.GET("/count", controller.GetChatRoomMessageCount)
 		chatRouter.GET("/ws", middleware.ChatWsAuth(), controller.ChatRoomWs)
 		chatRouter.POST("/images", middleware.UserAuth(), controller.UploadChatRoomImage)
 		chatRouter.GET("/images/:date/:name", controller.GetChatRoomImage)
