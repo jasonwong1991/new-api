@@ -29,6 +29,7 @@ import ProjectCard from './components/ProjectCard';
 import FAQTab from './components/FAQTab';
 import BanListTab from './components/BanListTab';
 import FloatingStoreButton from './components/FloatingStoreButton';
+import ArchivedUserCheck from './components/ArchivedUserCheck';
 
 const Home = () => {
   const { t } = useTranslation();
@@ -66,6 +67,8 @@ const Home = () => {
 
       <div className='flex flex-col gap-6'>
         <ProjectCard />
+
+        <ArchivedUserCheck />
 
         <Card>
           <Tabs type='line' defaultActiveKey='tutorial'>
