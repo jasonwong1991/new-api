@@ -98,8 +98,8 @@ const ChatRoomPage = () => {
   }, [lastError]);
 
   useEffect(() => {
-    if (autoScroll && bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (autoScroll && listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
     }
   }, [messages.length, autoScroll]);
 
@@ -268,8 +268,8 @@ const ChatRoomPage = () => {
   }, [draft, pendingImages, pendingFiles, connectionState, sendMessage, t]);
 
   const scrollToBottom = () => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
       setAutoScroll(true);
     }
   };
@@ -299,7 +299,7 @@ const ChatRoomPage = () => {
   return (
     <div className="w-full max-w-4xl mx-auto px-4 pt-20 pb-4">
       <Card
-        className="flex flex-col overflow-hidden"
+        className="flex flex-col overflow-hidden relative"
         style={{ height: CHAT_ROOM_HEIGHT }}
         bodyStyle={{ padding: 0, display: 'flex', flexDirection: 'column', height: '100%' }}
       >
