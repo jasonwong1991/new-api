@@ -299,13 +299,12 @@ export const ChatBubble = ({ message, isSelf, showUserInfo = true }) => {
                 {formatTime(created_at)}
               </Text>
             </div>
-            {hasRank && (
-              <UserInfoBadges
-                usageRank={usage_rank}
-                balanceRank={balance_rank}
-                compact={true}
-              />
-            )}
+            <UserInfoBadges
+              quota={quota}
+              usedQuota={used_quota}
+              usageRank={usage_rank}
+              balanceRank={balance_rank}
+            />
           </div>
         )}
 
