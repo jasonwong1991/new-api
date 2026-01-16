@@ -21,6 +21,9 @@ const ArchivedUserCheck = () => {
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
+      if (!localStorage.getItem('user')) {
+        return;
+      }
       try {
         const res = await API.get('/api/user/self');
         if (res.data.success) {
