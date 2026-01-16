@@ -26,6 +26,7 @@ import {
   InputNumber,
   Switch,
   TagInput,
+  TextArea,
 } from '@douyinfe/semi-ui';
 import { IconSaveStroked } from '@douyinfe/semi-icons';
 import { API, showError, showSuccess } from '../../../helpers';
@@ -160,15 +161,18 @@ export default function SettingsChatRoom() {
               />
             </Form.Slot>
 
-            <Form.TextArea
-              label={t('聊天室公告')}
-              placeholder={t('在此输入聊天室置顶公告内容，留空则不显示')}
-              value={inputs.announcement}
-              onChange={(v) => handleInputChange('announcement', v)}
-              autosize={{ minRows: 4, maxRows: 12 }}
-              style={{ fontFamily: 'JetBrains Mono, Consolas' }}
-              extraText={t('支持 Markdown 和 HTML 格式')}
-            />
+            <Form.Slot label={t('聊天室公告')}>
+              <TextArea
+                placeholder={t('在此输入聊天室置顶公告内容，留空则不显示')}
+                value={inputs.announcement}
+                onChange={(v) => handleInputChange('announcement', v)}
+                autosize={{ minRows: 4, maxRows: 12 }}
+                style={{ fontFamily: 'JetBrains Mono, Consolas', width: '100%' }}
+              />
+              <div className="text-gray-500 text-sm mt-1">
+                {t('支持 Markdown 和 HTML 格式')}
+              </div>
+            </Form.Slot>
 
             <Form.Slot label={t('启用图片功能')}>
               <Switch

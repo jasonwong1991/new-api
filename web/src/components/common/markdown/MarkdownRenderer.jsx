@@ -26,6 +26,7 @@ import RemarkBreaks from 'remark-breaks';
 import RehypeKatex from 'rehype-katex';
 import RemarkGfm from 'remark-gfm';
 import RehypeHighlight from 'rehype-highlight';
+import RehypeRaw from 'rehype-raw';
 import { useRef, useState, useEffect, useMemo } from 'react';
 import mermaid from 'mermaid';
 import React from 'react';
@@ -352,6 +353,7 @@ function _MarkdownContent(props) {
 
   const rehypePluginsBase = useMemo(() => {
     const base = [
+      RehypeRaw,
       RehypeKatex,
       [
         RehypeHighlight,

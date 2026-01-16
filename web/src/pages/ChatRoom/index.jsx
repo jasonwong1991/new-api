@@ -330,10 +330,10 @@ const ChatRoomPage = () => {
 
         {/* Announcement */}
         {announcement && (
-          <div className="px-4 py-2 border-b border-semi-color-border bg-amber-50 dark:bg-amber-900/20">
+          <div className="px-4 py-2 border-b border-semi-color-border bg-amber-50 dark:bg-amber-900/20 overflow-hidden">
             <div className="flex items-start gap-2">
               <Text type="warning" strong size="small">📢</Text>
-              <div className="flex-1 text-sm [&_p]:m-0 [&_p]:leading-relaxed">
+              <div className="flex-1 text-sm [&_p]:m-0 [&_p]:leading-relaxed min-w-0 overflow-hidden">
                 <MarkdownRenderer content={announcement} />
               </div>
             </div>
@@ -354,19 +354,21 @@ const ChatRoomPage = () => {
               ref={virtuosoRef}
               data={messages}
               computeItemKey={(index, item) => item.id}
+              initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
               followOutput={autoScroll ? 'auto' : false}
               atBottomStateChange={(isAtBottom) => setAutoScroll(isAtBottom)}
               className="h-full"
-              style={{ paddingLeft: 16, paddingRight: 16 }}
               components={{
                 Header: () => <div style={{ height: 16 }} />,
                 Footer: () => <div style={{ height: 16 }} />,
               }}
               itemContent={(index, m) => (
-                <ChatBubble
-                  message={m}
-                  isSelf={me?.username && m.username === me.username}
-                />
+                <div className="px-4">
+                  <ChatBubble
+                    message={m}
+                    isSelf={me?.username && m.username === me.username}
+                  />
+                </div>
               )}
             />
           )}
