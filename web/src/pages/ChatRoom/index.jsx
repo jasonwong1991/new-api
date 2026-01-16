@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card, Tag, Typography, Toast, TextArea, Spin } from '@douyinfe/semi-ui';
 import { IconImage, IconSend, IconRefresh, IconFile } from '@douyinfe/semi-icons';
+import { Virtuoso } from 'react-virtuoso';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../context/Status';
 import { UserContext } from '../../context/User';
@@ -60,8 +61,7 @@ const ChatRoomPage = () => {
   const [pendingImages, setPendingImages] = useState([]);
   const [pendingFiles, setPendingFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const listRef = useRef(null);
-  const bottomRef = useRef(null);
+  const virtuosoRef = useRef(null);
   const fileInputRef = useRef(null);
   const pendingImagesRef = useRef(pendingImages);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -97,21 +97,6 @@ const ChatRoomPage = () => {
       Toast.error(lastError);
     }
   }, [lastError]);
-
-  useEffect(() => {
-    if (autoScroll && listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
-    }
-  }, [messages.length, autoScroll]);
-
-  const handleScroll = useCallback(() => {
-    const el = listRef.current;
-    if (!el) return;
-    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-    if (isNearBottom !== autoScroll) {
-      setAutoScroll(isNearBottom);
-    }
-  }, [autoScroll]);
 
   const uploadImage = async (file) => {
     const formData = new FormData();
@@ -269,8 +254,11 @@ const ChatRoomPage = () => {
   }, [draft, pendingImages, pendingFiles, connectionState, sendMessage, t]);
 
   const scrollToBottom = () => {
-    if (listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
+    if (virtuosoRef.current && messages.length > 0) {
+      virtuosoRef.current.scrollToIndex({
+        index: messages.length - 1,
+        behavior: 'smooth',
+      });
       setAutoScroll(true);
     }
   };
@@ -354,9 +342,7 @@ const ChatRoomPage = () => {
 
         {/* Messages Area */}
         <div
-          ref={listRef}
-          onScroll={handleScroll}
-          className="flex-1 overflow-y-auto px-4 py-4 bg-gray-50 dark:bg-zinc-900/50"
+          className="flex-1 overflow-hidden bg-gray-50 dark:bg-zinc-900/50"
           style={{ minHeight: 0 }}
         >
           {messages.length === 0 ? (
@@ -364,16 +350,25 @@ const ChatRoomPage = () => {
               <Text type="tertiary">{t('暂无消息，发送第一条消息吧')}</Text>
             </div>
           ) : (
-            <div className="flex flex-col">
-              {messages.map((m) => (
+            <Virtuoso
+              ref={virtuosoRef}
+              data={messages}
+              computeItemKey={(index, item) => item.id}
+              followOutput={autoScroll ? 'auto' : false}
+              atBottomStateChange={(isAtBottom) => setAutoScroll(isAtBottom)}
+              className="h-full"
+              style={{ paddingLeft: 16, paddingRight: 16 }}
+              components={{
+                Header: () => <div style={{ height: 16 }} />,
+                Footer: () => <div style={{ height: 16 }} />,
+              }}
+              itemContent={(index, m) => (
                 <ChatBubble
-                  key={m.id}
                   message={m}
                   isSelf={me?.username && m.username === me.username}
                 />
-              ))}
-              <div ref={bottomRef} />
-            </div>
+              )}
+            />
           )}
         </div>
 

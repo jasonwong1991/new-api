@@ -40,13 +40,34 @@ export function useChatRoomSocket({ enabled, messageLimit, room = 'global' }) {
   const wsRef = useRef(null);
   const reconnectTimerRef = useRef(null);
   const reconnectAttemptRef = useRef(0);
+  const messageQueueRef = useRef([]);
+  const batchTimerRef = useRef(null);
+  const messageLimitRef = useRef(messageLimit);
 
   const [messages, setMessages] = useState([]);
   const [connectionState, setConnectionState] = useState('disconnected');
   const [lastError, setLastError] = useState('');
   const [announcement, setAnnouncement] = useState('');
 
+  useEffect(() => {
+    messageLimitRef.current = messageLimit;
+  }, [messageLimit]);
+
+  const flushMessageQueue = useCallback(() => {
+    if (messageQueueRef.current.length > 0) {
+      setMessages((prev) =>
+        clampMessages([...prev, ...messageQueueRef.current], messageLimitRef.current),
+      );
+      messageQueueRef.current = [];
+    }
+    if (batchTimerRef.current) {
+      clearTimeout(batchTimerRef.current);
+      batchTimerRef.current = null;
+    }
+  }, []);
+
   const cleanup = useCallback(() => {
+    flushMessageQueue();
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
@@ -64,7 +85,7 @@ export function useChatRoomSocket({ enabled, messageLimit, room = 'global' }) {
       }
       wsRef.current = null;
     }
-  }, []);
+  }, [flushMessageQueue]);
 
   const scheduleReconnect = useCallback(() => {
     if (!enabled) return;
@@ -101,14 +122,27 @@ export function useChatRoomSocket({ enabled, messageLimit, room = 'global' }) {
         if (payload.type === 'init') {
           const initMessages = payload?.data?.messages || [];
           const initAnnouncement = payload?.data?.config?.announcement || '';
-          setMessages(clampMessages(initMessages, messageLimit));
+          setMessages(clampMessages(initMessages, messageLimitRef.current));
           setAnnouncement(initAnnouncement);
           return;
         }
         if (payload.type === 'message') {
           const m = payload?.data?.message;
           if (!m) return;
-          setMessages((prev) => clampMessages([...prev, m], messageLimit));
+          messageQueueRef.current.push(m);
+          const queueLen = messageQueueRef.current.length;
+          if (queueLen >= 50 || !batchTimerRef.current) {
+            if (batchTimerRef.current) {
+              clearTimeout(batchTimerRef.current);
+            }
+            batchTimerRef.current = setTimeout(() => {
+              setMessages((prev) =>
+                clampMessages([...prev, ...messageQueueRef.current], messageLimitRef.current),
+              );
+              messageQueueRef.current = [];
+              batchTimerRef.current = null;
+            }, queueLen >= 50 ? 0 : 100);
+          }
           return;
         }
         if (payload.type === 'announcement') {

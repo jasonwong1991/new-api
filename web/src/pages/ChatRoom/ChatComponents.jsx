@@ -219,7 +219,7 @@ export const UserInfoBadges = ({ quota, usedQuota, usageRank, balanceRank, compa
   );
 };
 
-export const ChatBubble = ({ message, isSelf, showUserInfo = true }) => {
+export const ChatBubble = React.memo(({ message, isSelf, showUserInfo = true }) => {
   const { t } = useTranslation();
   const {
     username,
@@ -343,6 +343,6 @@ export const ChatBubble = ({ message, isSelf, showUserInfo = true }) => {
       </div>
     </div>
   );
-};
+});
 
 export default ChatBubble;
