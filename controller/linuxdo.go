@@ -68,6 +68,13 @@ func LinuxDoBind(c *gin.Context) {
 	}
 
 	user.LinuxDOId = strconv.Itoa(linuxdoUser.Id)
+	user.LinuxDOUsername = linuxdoUser.Username
+	user.LinuxDOAvatar = linuxdoUser.AvatarUrl
+	user.LinuxDOLevel = linuxdoUser.TrustLevel
+	// 同步 name 到 display_name
+	if linuxdoUser.Name != "" {
+		user.DisplayName = linuxdoUser.Name
+	}
 	err = user.Update(false)
 	if err != nil {
 		common.ApiError(c, err)
@@ -229,6 +236,7 @@ func LinuxdoOAuth(c *gin.Context) {
 			return
 		}
 		// 每次登录更新 Linux.do 信息
+		user.LinuxDOId = strconv.Itoa(linuxdoUser.Id)
 		user.LinuxDOUsername = linuxdoUser.Username
 		user.LinuxDOAvatar = linuxdoUser.AvatarUrl
 		user.LinuxDOLevel = linuxdoUser.TrustLevel

@@ -259,7 +259,16 @@ func RecoverQuotaToUser(currentUserId int, archivedId int) (int, error) {
 			return errors.New("归档用户不存在")
 		}
 
-		if currentUser.LinuxDOId == "" || currentUser.LinuxDOId != archivedUser.LinuxDOId {
+		// 多条件匹配验证：优先使用 LinuxDOId（不可变），其次使用 LinuxDOUsername 或 DisplayName
+		matched := false
+		if currentUser.LinuxDOId != "" && archivedUser.LinuxDOId != "" && currentUser.LinuxDOId == archivedUser.LinuxDOId {
+			matched = true
+		} else if currentUser.LinuxDOUsername != "" && archivedUser.LinuxDOUsername != "" && currentUser.LinuxDOUsername == archivedUser.LinuxDOUsername {
+			matched = true
+		} else if currentUser.DisplayName != "" && archivedUser.DisplayName != "" && currentUser.DisplayName == archivedUser.DisplayName {
+			matched = true
+		}
+		if !matched {
 			return errors.New("LinuxDO 账号不匹配，无法恢复额度")
 		}
 
