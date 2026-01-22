@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Button, Col, Form, Row, Spin } from '@douyinfe/semi-ui';
+import { Button, Col, Form, Row, Spin, TagInput, Banner } from '@douyinfe/semi-ui';
 import {
   compareObjects,
   API,
@@ -39,6 +39,7 @@ export default function RequestRateLimit(props) {
     ModelRequestRateLimitSuccessCount: 1000,
     ModelRequestRateLimitDurationMinutes: 1,
     ModelRequestRateLimitGroup: '',
+    RateLimitExemptWhitelist: '',
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -97,6 +98,28 @@ export default function RequestRateLimit(props) {
     refForm.current.setValues(currentInputs);
   }, [props.options]);
 
+  // Parse whitelist JSON string to array of string tags
+  const parseWhitelist = (value) => {
+    if (!value || value.trim() === '') return [];
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  // Format array of tags to JSON string
+  const formatWhitelist = (tags) => {
+    if (!tags || tags.length === 0) return '';
+    const numericTags = tags
+      .map((tag) => parseInt(tag, 10))
+      .filter((id) => !isNaN(id) && id > 0);
+    return JSON.stringify(numericTags);
+  };
+
+  const whitelistTags = parseWhitelist(inputs.RateLimitExemptWhitelist);
+
   return (
     <>
       <Spin spinning={loading}>
@@ -105,6 +128,64 @@ export default function RequestRateLimit(props) {
           getFormApi={(formAPI) => (refForm.current = formAPI)}
           style={{ marginBottom: 15 }}
         >
+          <Form.Section text={t('速率限制豁免白名单')}>
+            <Row gutter={16}>
+              <Col span={24}>
+                <Banner
+                  type='warning'
+                  icon={null}
+                  description={t(
+                    '白名单用户将完全绕过所有速率限制（最高优先级）。请谨慎添加用户。',
+                  )}
+                  style={{ marginBottom: 16 }}
+                />
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col xs={24} sm={16}>
+                <Form.Slot label={t('豁免用户列表')}>
+                  <TagInput
+                    value={whitelistTags}
+                    placeholder={t('输入用户ID后按回车添加')}
+                    addOnBlur
+                    allowDuplicates={false}
+                    separator={[',', ';', ' ']}
+                    validateStatus={
+                      whitelistTags.some((tag) => isNaN(parseInt(tag, 10)))
+                        ? 'error'
+                        : 'default'
+                    }
+                    onChange={(tags) => {
+                      const formatted = formatWhitelist(tags);
+                      setInputs({
+                        ...inputs,
+                        RateLimitExemptWhitelist: formatted,
+                      });
+                    }}
+                    style={{ width: '100%' }}
+                  />
+                </Form.Slot>
+                <div
+                  style={{ marginTop: 8, fontSize: 12, color: 'var(--semi-color-text-2)' }}
+                >
+                  <p>{t('说明：')}</p>
+                  <ul style={{ paddingLeft: 20, margin: 0 }}>
+                    <li>
+                      {t('输入用户ID（纯数字），按回车键或逗号/分号/空格分隔添加')}
+                    </li>
+                    <li>{t('点击标签上的 × 可删除该用户')}</li>
+                    <li>{t('白名单用户优先级最高，将完全绕过所有速率限制')}</li>
+                    <li>{t('建议仅添加管理员或测试账号')}</li>
+                  </ul>
+                </div>
+              </Col>
+            </Row>
+            <Row style={{ marginTop: 16 }}>
+              <Button size='default' onClick={onSubmit}>
+                {t('保存白名单配置')}
+              </Button>
+            </Row>
+          </Form.Section>
           <Form.Section text={t('模型请求速率限制')}>
             <Row gutter={16}>
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>
