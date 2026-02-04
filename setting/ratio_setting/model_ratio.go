@@ -406,6 +406,13 @@ func GetModelPrice(name string, printErr bool) (float64, bool) {
 
 	price, ok := modelPriceMap[name]
 	if !ok {
+		// Fallback: if model has prefix (e.g., "aws/gpt-4"), try base model name
+		if idx := strings.LastIndex(name, "/"); idx != -1 && idx < len(name)-1 {
+			baseName := name[idx+1:]
+			if basePrice, ok := modelPriceMap[baseName]; ok {
+				return basePrice, true
+			}
+		}
 		if printErr {
 			common.SysError("model price not found: " + name)
 		}
@@ -441,6 +448,13 @@ func GetModelRatio(name string) (float64, bool, string) {
 
 	ratio, ok := modelRatioMap[name]
 	if !ok {
+		// Fallback: if model has prefix (e.g., "aws/gpt-4"), try base model name
+		if idx := strings.LastIndex(name, "/"); idx != -1 && idx < len(name)-1 {
+			baseName := name[idx+1:]
+			if baseRatio, ok := modelRatioMap[baseName]; ok {
+				return baseRatio, true, baseName
+			}
+		}
 		return 37.5, operation_setting.SelfUseModeEnabled, name
 	}
 	return ratio, true, name
@@ -508,18 +522,26 @@ func GetCompletionRatio(name string) float64 {
 
 	name = FormatMatchingModelName(name)
 
-	if strings.Contains(name, "/") {
-		if ratio, ok := CompletionRatio[name]; ok {
-			return ratio
-		}
-	}
-	hardCodedRatio, contain := getHardcodedCompletionModelRatio(name)
-	if contain {
-		return hardCodedRatio
-	}
+	// Try exact match first
 	if ratio, ok := CompletionRatio[name]; ok {
 		return ratio
 	}
+
+	// Fallback: if model has prefix (e.g., "aws/gpt-4"), try base model name
+	baseName := name
+	if idx := strings.LastIndex(name, "/"); idx != -1 && idx < len(name)-1 {
+		baseName = name[idx+1:]
+		if ratio, ok := CompletionRatio[baseName]; ok {
+			return ratio
+		}
+	}
+
+	// Try hardcoded ratio with base name
+	hardCodedRatio, contain := getHardcodedCompletionModelRatio(baseName)
+	if contain {
+		return hardCodedRatio
+	}
+
 	return hardCodedRatio
 }
 
