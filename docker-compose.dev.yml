@@ -19,6 +19,7 @@ services:
       - ERROR_LOG_ENABLED=true
       - BATCH_UPDATE_ENABLED=true
       - DEBUG=true
+      - SESSION_SECRET=dev_session_secret_change_in_production
     depends_on:
       - redis
       - postgres

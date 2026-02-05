@@ -24,6 +24,7 @@ import (
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
+	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
@@ -148,7 +149,22 @@ func main() {
 	server.Use(middleware.RequestId())
 	middleware.SetUpLogger(server)
 	// Initialize session store
-	store := cookie.NewStore([]byte(common.SessionSecret))
+	var store sessions.Store
+	if common.RedisEnabled {
+		// Use Redis store for session persistence across container restarts
+		redisOpt := common.ParseRedisOption()
+		var err error
+		store, err = redis.NewStore(10, redisOpt.Network, redisOpt.Addr, redisOpt.Password, []byte(common.SessionSecret))
+		if err != nil {
+			common.FatalLog("failed to initialize Redis session store: " + err.Error())
+		}
+		common.SysLog("Session store: Redis (persistent across restarts)")
+	} else {
+		// Fallback to cookie store when Redis is not enabled
+		store = cookie.NewStore([]byte(common.SessionSecret))
+		common.SysLog("Session store: Cookie (sessions will be lost on restart)")
+	}
+
 	store.Options(sessions.Options{
 		Path:     "/",
 		MaxAge:   2592000, // 30 days
