@@ -35,6 +35,8 @@ export default function SettingsSensitiveWords(props) {
     CheckSensitiveEnabled: false,
     CheckSensitiveOnPromptEnabled: false,
     SensitiveWords: '',
+    MinMaxTokensCheckEnabled: false,
+    MinMaxTokensValue: 0,
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -45,6 +47,8 @@ export default function SettingsSensitiveWords(props) {
     const requestQueue = updateArray.map((item) => {
       let value = '';
       if (typeof inputs[item.key] === 'boolean') {
+        value = String(inputs[item.key]);
+      } else if (typeof inputs[item.key] === 'number') {
         value = String(inputs[item.key]);
       } else {
         value = inputs[item.key];
@@ -121,6 +125,37 @@ export default function SettingsSensitiveWords(props) {
                     setInputs({
                       ...inputs,
                       CheckSensitiveOnPromptEnabled: value,
+                    })
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.Switch
+                  field={'MinMaxTokensCheckEnabled'}
+                  label={t('启用 max_tokens 最小值检查')}
+                  size='default'
+                  checkedText='｜'
+                  uncheckedText='〇'
+                  onChange={(value) => {
+                    setInputs({
+                      ...inputs,
+                      MinMaxTokensCheckEnabled: value,
+                    });
+                  }}
+                />
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.InputNumber
+                  field={'MinMaxTokensValue'}
+                  label={t('max_tokens 最小允许值')}
+                  placeholder={t('设置为 0 表示不限制')}
+                  min={0}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      MinMaxTokensValue: value,
                     })
                   }
                 />

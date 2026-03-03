@@ -145,6 +145,8 @@ func InitOptionMap() {
 	common.OptionMap["StopOnSensitiveEnabled"] = strconv.FormatBool(setting.StopOnSensitiveEnabled)
 	common.OptionMap["SensitiveWords"] = setting.SensitiveWordsToString()
 	common.OptionMap["StreamCacheQueueLength"] = strconv.Itoa(setting.StreamCacheQueueLength)
+	common.OptionMap["MinMaxTokensCheckEnabled"] = strconv.FormatBool(setting.MinMaxTokensCheckEnabled)
+	common.OptionMap["MinMaxTokensValue"] = strconv.Itoa(setting.MinMaxTokensValue)
 	common.OptionMap["AutomaticDisableKeywords"] = operation_setting.AutomaticDisableKeywordsToString()
 	common.OptionMap["ExposeRatioEnabled"] = strconv.FormatBool(ratio_setting.IsExposeRatioEnabled())
 
@@ -299,6 +301,8 @@ func updateOptionMap(key string, value string) (err error) {
 			setting.DefaultUseAutoGroup = boolValue
 		case "ExposeRatioEnabled":
 			ratio_setting.SetExposeRatioEnabled(boolValue)
+		case "MinMaxTokensCheckEnabled":
+			setting.MinMaxTokensCheckEnabled = boolValue
 		}
 	}
 	switch key {
@@ -459,6 +463,8 @@ func updateOptionMap(key string, value string) (err error) {
 		operation_setting.AutomaticDisableKeywordsFromString(value)
 	case "StreamCacheQueueLength":
 		setting.StreamCacheQueueLength, _ = strconv.Atoi(value)
+	case "MinMaxTokensValue":
+		setting.MinMaxTokensValue, _ = strconv.Atoi(value)
 	case "PayMethods":
 		err = operation_setting.UpdatePayMethodsByJsonString(value)
 	}

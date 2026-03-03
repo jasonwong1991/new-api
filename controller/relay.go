@@ -125,6 +125,15 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 	}
 
+	if setting.MinMaxTokensCheckEnabled && setting.MinMaxTokensValue > 0 &&
+		meta.MaxTokens > 0 && meta.MaxTokens < setting.MinMaxTokensValue {
+		newAPIError = types.NewError(
+			fmt.Errorf("max_tokens value %d is below minimum allowed (%d)",
+				meta.MaxTokens, setting.MinMaxTokensValue),
+			types.ErrorCodeInvalidRequest)
+		return
+	}
+
 	tokens, err := service.EstimateRequestToken(c, meta, relayInfo)
 	if err != nil {
 		newAPIError = types.NewError(err, types.ErrorCodeCountTokenFailed)

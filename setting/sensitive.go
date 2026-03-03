@@ -13,6 +13,9 @@ var StopOnSensitiveEnabled = true
 // StreamCacheQueueLength 流模式缓存队列长度，0表示无缓存
 var StreamCacheQueueLength = 0
 
+var MinMaxTokensCheckEnabled = false // 默认关闭
+var MinMaxTokensValue = 0            // 最小允许值，0 表示不限制
+
 // SensitiveWords 敏感词
 // var SensitiveWords []string
 var SensitiveWords = []string{
