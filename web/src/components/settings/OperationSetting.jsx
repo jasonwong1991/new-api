@@ -66,6 +66,8 @@ const OperationSetting = () => {
     CheckSensitiveEnabled: false,
     CheckSensitiveOnPromptEnabled: false,
     SensitiveWords: '',
+    MinMaxTokensCheckEnabled: false,
+    MinMaxTokensValue: 0,
 
     /* 日志设置 */
     LogConsumeEnabled: false,
