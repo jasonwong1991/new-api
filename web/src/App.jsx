@@ -325,11 +325,9 @@ function App() {
         <Route
           path='/chat-room'
           element={
-            <PrivateRoute>
-              <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-                <ChatRoom />
-              </Suspense>
-            </PrivateRoute>
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              <ChatRoom />
+            </Suspense>
           }
         />
         <Route

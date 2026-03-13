@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { Button, Card, Tag, Typography, Toast, TextArea, Spin } from '@douyinfe/semi-ui';
 import { IconImage, IconSend, IconRefresh, IconFile } from '@douyinfe/semi-icons';
 import { Virtuoso } from 'react-virtuoso';
@@ -275,14 +276,7 @@ const ChatRoomPage = () => {
   }
 
   if (!isLoggedIn) {
-    return (
-      <div className="w-full max-w-4xl mx-auto px-4 py-8 mt-16">
-        <Card>
-          <Title heading={4}>{t('聊天室')}</Title>
-          <Text type="tertiary">{t('请先登录后再进入聊天室')}</Text>
-        </Card>
-      </div>
-    );
+    return <Navigate to="/" replace />;
   }
 
   return (
