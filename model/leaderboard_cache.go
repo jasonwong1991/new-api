@@ -9,10 +9,14 @@ import (
 
 // Leaderboard cache structures
 type LeaderboardCache struct {
-	UserLeaderboard  map[string][]UsageLeaderboardEntry // period -> entries
-	ModelLeaderboard map[string][]ModelLeaderboardEntry // period -> entries
-	LastUpdated      time.Time
-	mu               sync.RWMutex
+	UserLeaderboard  map[string][]UsageLeaderboardEntry // period -> entries (24h, 7d, 14d, 30d)
+	ModelLeaderboard map[string][]ModelLeaderboardEntry // period -> entries (24h, 7d, 14d, 30d)
+	// "all" period uses different data sources (users table / quota_data table)
+	AllTimeUserLeaderboard  []UsageLeaderboardEntry
+	AllTimeModelLeaderboard []ModelLeaderboardEntry
+	LastUpdated             time.Time
+	LastUpdated24h          time.Time
+	mu                      sync.RWMutex
 }
 
 var leaderboardCache = &LeaderboardCache{
@@ -21,7 +25,7 @@ var leaderboardCache = &LeaderboardCache{
 }
 
 // Periods that need caching (expensive queries)
-var cachedPeriods = []string{"7d", "14d", "30d"}
+var cachedPeriods = []string{"24h", "7d", "14d", "30d"}
 
 // InitLeaderboardCache initializes the leaderboard cache on startup (async)
 func InitLeaderboardCache() {
@@ -58,7 +62,11 @@ func RefreshLeaderboardCache() {
 		}
 	}
 
+	// Refresh "all" period (uses different data sources)
+	refreshAllTimeLeaderboard()
+
 	leaderboardCache.LastUpdated = time.Now()
+	leaderboardCache.LastUpdated24h = time.Now()
 	common.SysLog("Leaderboard cache refreshed at " + leaderboardCache.LastUpdated.Format("2006-01-02 15:04:05"))
 }
 
@@ -78,6 +86,71 @@ func StartLeaderboardCacheScheduler() {
 			RefreshLeaderboardCache()
 		}
 	}()
+}
+
+// StartLeaderboard24hCacheScheduler starts a more frequent refresh for 24h period (every 10 minutes)
+func StartLeaderboard24hCacheScheduler() {
+	go func() {
+		ticker := time.NewTicker(10 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			refresh24hLeaderboard()
+		}
+	}()
+}
+
+// refreshAllTimeLeaderboard refreshes the "all" period data (called within lock)
+func refreshAllTimeLeaderboard() {
+	// User "all" leaderboard: use users table (consistent with GetUsageLeaderboard fallback).
+	// The users table stores cumulative used_quota that survives log cleanup.
+	rawUsers, err := GetUsageLeaderboard(100)
+	if err != nil {
+		common.SysLog("Failed to refresh all-time user leaderboard: " + err.Error())
+	} else {
+		entries := make([]UsageLeaderboardEntry, len(rawUsers))
+		for i, u := range rawUsers {
+			entries[i] = UsageLeaderboardEntry{
+				DisplayName:    u.DisplayName,
+				LinuxDOUsername: u.LinuxDOUsername,
+				LinuxDOAvatar:  u.LinuxDOAvatar,
+				LinuxDOLevel:   u.LinuxDOLevel,
+				RequestCount:   int64(u.RequestCount),
+				UsedQuota:      int64(u.UsedQuota),
+			}
+		}
+		leaderboardCache.AllTimeUserLeaderboard = entries
+	}
+
+	// Model "all" leaderboard: uses quota_data table (persistent aggregated data)
+	models, err := GetModelUsageLeaderboard(100)
+	if err != nil {
+		common.SysLog("Failed to refresh all-time model leaderboard: " + err.Error())
+	} else {
+		leaderboardCache.AllTimeModelLeaderboard = models
+	}
+}
+
+// refresh24hLeaderboard refreshes only the 24h period cache
+func refresh24hLeaderboard() {
+	leaderboardCache.mu.Lock()
+	defer leaderboardCache.mu.Unlock()
+
+	users, err := getUsageLeaderboardByPeriodDirect("24h", 100)
+	if err != nil {
+		common.SysLog("Failed to refresh 24h user leaderboard: " + err.Error())
+	} else {
+		leaderboardCache.UserLeaderboard["24h"] = users
+	}
+
+	models, err := getModelLeaderboardByPeriodDirect("24h", 100)
+	if err != nil {
+		common.SysLog("Failed to refresh 24h model leaderboard: " + err.Error())
+	} else {
+		leaderboardCache.ModelLeaderboard["24h"] = models
+	}
+
+	leaderboardCache.LastUpdated24h = time.Now()
+	common.SysLog("24h leaderboard cache refreshed")
 }
 
 // GetCachedUserLeaderboardByPeriod returns cached user leaderboard for a period
@@ -127,6 +200,41 @@ func GetLeaderboardCacheLastUpdated() time.Time {
 	leaderboardCache.mu.RLock()
 	defer leaderboardCache.mu.RUnlock()
 	return leaderboardCache.LastUpdated
+}
+
+// GetLeaderboardCacheLastUpdated24h returns the last update time for 24h cache
+func GetLeaderboardCacheLastUpdated24h() time.Time {
+	leaderboardCache.mu.RLock()
+	defer leaderboardCache.mu.RUnlock()
+	return leaderboardCache.LastUpdated24h
+}
+
+// GetCachedAllTimeUserLeaderboard returns cached all-time user leaderboard
+func GetCachedAllTimeUserLeaderboard() ([]UsageLeaderboardEntry, bool) {
+	leaderboardCache.mu.RLock()
+	defer leaderboardCache.mu.RUnlock()
+
+	if len(leaderboardCache.AllTimeUserLeaderboard) == 0 {
+		return nil, false
+	}
+
+	result := make([]UsageLeaderboardEntry, len(leaderboardCache.AllTimeUserLeaderboard))
+	copy(result, leaderboardCache.AllTimeUserLeaderboard)
+	return result, true
+}
+
+// GetCachedAllTimeModelLeaderboard returns cached all-time model leaderboard
+func GetCachedAllTimeModelLeaderboard() ([]ModelLeaderboardEntry, bool) {
+	leaderboardCache.mu.RLock()
+	defer leaderboardCache.mu.RUnlock()
+
+	if len(leaderboardCache.AllTimeModelLeaderboard) == 0 {
+		return nil, false
+	}
+
+	result := make([]ModelLeaderboardEntry, len(leaderboardCache.AllTimeModelLeaderboard))
+	copy(result, leaderboardCache.AllTimeModelLeaderboard)
+	return result, true
 }
 
 func isPeriodCached(period string) bool {

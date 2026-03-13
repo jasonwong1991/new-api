@@ -25,7 +25,7 @@ var userRankCache = &UserRankCache{
 	ranks: make(map[int]UserRankInfo),
 }
 
-const userRankCacheRefreshInterval = 5 * time.Minute
+const userRankCacheRefreshInterval = 30 * time.Minute
 
 // InitUserRankCache initializes the user rank cache on startup
 func InitUserRankCache() {

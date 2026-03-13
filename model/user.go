@@ -1,11 +1,13 @@
 package model
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -681,8 +683,33 @@ func ValidateAccessToken(token string) (user *User) {
 		return nil
 	}
 	token = strings.Replace(token, "Bearer ", "", 1)
+
+	// Try Redis cache first
+	// Note: cached user status may be stale for up to SyncFrequency seconds (default 60s).
+	// If a user is banned, they may retain access until the cache TTL expires.
+	// This is an acceptable trade-off for reducing DB load on high-frequency token validation.
+	if common.RedisEnabled {
+		cacheKey := fmt.Sprintf("access_token:%s", hex.EncodeToString(common.Sha256Raw([]byte(token))))
+		user = &User{}
+		if err := common.RedisHGetObj(cacheKey, user); err == nil && user.Id > 0 {
+			return user
+		}
+	}
+
+	// Fallback to DB
 	user = &User{}
 	if DB.Where("access_token = ?", token).First(user).RowsAffected == 1 {
+		// Cache the result asynchronously
+		if common.RedisEnabled {
+			cacheKey := fmt.Sprintf("access_token:%s", hex.EncodeToString(common.Sha256Raw([]byte(token))))
+			cachedUser := *user // copy struct to avoid mutating the original
+			cachedUser.Password = "" // never cache password hash in Redis
+			gopool.Go(func() {
+				if err := common.RedisHSetObj(cacheKey, &cachedUser, time.Duration(common.SyncFrequency)*time.Second); err != nil {
+					common.SysLog("failed to cache access token: " + err.Error())
+				}
+			})
+		}
 		return user
 	}
 	return nil

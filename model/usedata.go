@@ -68,37 +68,33 @@ func SaveQuotaDataCache() {
 	CacheQuotaDataLock.Lock()
 	defer CacheQuotaDataLock.Unlock()
 	size := len(CacheQuotaData)
-	// 如果缓存中有数据，就保存到数据库中
-	// 1. 先查询数据库中是否有数据
-	// 2. 如果有数据，就更新数据
-	// 3. 如果没有数据，就插入数据
+	if size == 0 {
+		return
+	}
+
 	for _, quotaData := range CacheQuotaData {
-		quotaDataDB := &QuotaData{}
-		DB.Table("quota_data").Where("user_id = ? and username = ? and model_name = ? and created_at = ?",
-			quotaData.UserID, quotaData.Username, quotaData.ModelName, quotaData.CreatedAt).First(quotaDataDB)
-		if quotaDataDB.Id > 0 {
-			//quotaDataDB.Count += quotaData.Count
-			//quotaDataDB.Quota += quotaData.Quota
-			//DB.Table("quota_data").Save(quotaDataDB)
-			increaseQuotaData(quotaData.UserID, quotaData.Username, quotaData.ModelName, quotaData.Count, quotaData.Quota, quotaData.CreatedAt, quotaData.TokenUsed)
-		} else {
-			DB.Table("quota_data").Create(quotaData)
+		// Use UPSERT pattern: try to update first, insert if no rows affected
+		result := DB.Table("quota_data").
+			Where("user_id = ? AND username = ? AND model_name = ? AND created_at = ?",
+				quotaData.UserID, quotaData.Username, quotaData.ModelName, quotaData.CreatedAt).
+			Updates(map[string]interface{}{
+				"count":      gorm.Expr("count + ?", quotaData.Count),
+				"quota":      gorm.Expr("quota + ?", quotaData.Quota),
+				"token_used": gorm.Expr("token_used + ?", quotaData.TokenUsed),
+			})
+		if result.Error != nil {
+			common.SysLog(fmt.Sprintf("SaveQuotaDataCache update error: %s", result.Error))
+			continue
+		}
+		// If no rows were updated, insert a new record
+		if result.RowsAffected == 0 {
+			if err := DB.Table("quota_data").Create(quotaData).Error; err != nil {
+				common.SysLog(fmt.Sprintf("SaveQuotaDataCache insert error: %s", err))
+			}
 		}
 	}
 	CacheQuotaData = make(map[string]*QuotaData)
 	common.SysLog(fmt.Sprintf("保存数据看板数据成功，共保存%d条数据", size))
-}
-
-func increaseQuotaData(userId int, username string, modelName string, count int, quota int, createdAt int64, tokenUsed int) {
-	err := DB.Table("quota_data").Where("user_id = ? and username = ? and model_name = ? and created_at = ?",
-		userId, username, modelName, createdAt).Updates(map[string]interface{}{
-		"count":      gorm.Expr("count + ?", count),
-		"quota":      gorm.Expr("quota + ?", quota),
-		"token_used": gorm.Expr("token_used + ?", tokenUsed),
-	}).Error
-	if err != nil {
-		common.SysLog(fmt.Sprintf("increaseQuotaData error: %s", err))
-	}
 }
 
 func GetQuotaDataByUsername(username string, startTime int64, endTime int64) (quotaData []*QuotaData, err error) {

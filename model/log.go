@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -50,6 +51,77 @@ const (
 	LogTypeRefund  = 6
 )
 
+var (
+	logBuffer     []*Log
+	logBufferLock sync.Mutex
+	logBufferSize = 100 // flush when buffer reaches this size
+)
+
+func init() {
+	logBuffer = make([]*Log, 0, logBufferSize)
+	go logBatchWriter()
+}
+
+func logBatchWriter() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		flushLogBuffer()
+	}
+}
+
+func flushLogBuffer() {
+	if LOG_DB == nil {
+		return
+	}
+	logBufferLock.Lock()
+	if len(logBuffer) == 0 {
+		logBufferLock.Unlock()
+		return
+	}
+	logs := logBuffer
+	logBuffer = make([]*Log, 0, logBufferSize)
+	logBufferLock.Unlock()
+
+	// Batch insert in chunks of 100
+	batchSize := 100
+	for i := 0; i < len(logs); i += batchSize {
+		end := i + batchSize
+		if end > len(logs) {
+			end = len(logs)
+		}
+		if err := LOG_DB.CreateInBatches(logs[i:end], batchSize).Error; err != nil {
+			common.SysLog("failed to batch insert logs: " + err.Error())
+			// Fallback: try individual inserts for failed batch
+			for _, log := range logs[i:end] {
+				if err := LOG_DB.Create(log).Error; err != nil {
+					common.SysLog("failed to insert log: " + err.Error())
+				}
+			}
+		}
+	}
+}
+
+// FlushLogBuffer flushes any buffered logs to the database.
+// Must be called during graceful shutdown before closing DB connections.
+func FlushLogBuffer() {
+	flushLogBuffer()
+}
+
+func bufferLog(log *Log) {
+	logBufferLock.Lock()
+	logBuffer = append(logBuffer, log)
+	shouldFlush := len(logBuffer) >= logBufferSize
+	logBufferLock.Unlock()
+
+	if shouldFlush {
+		// Use gopool for async flush to avoid blocking the caller
+		gopool.Go(func() {
+			flushLogBuffer()
+		})
+	}
+}
+
 func formatUserLogs(logs []*Log) {
 	for i := range logs {
 		logs[i].ChannelName = ""
@@ -90,12 +162,11 @@ func RecordLog(userId int, logType int, content string) {
 		Type:      logType,
 		Content:   content,
 	}
-	err := LOG_DB.Create(log).Error
-	if err != nil {
-		common.SysLog("failed to record log: " + err.Error())
-	}
+	bufferLog(log)
 }
 
+// RecordErrorLog writes error logs synchronously (not buffered) to ensure
+// critical error information is persisted immediately and not lost on crash.
 func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string, tokenName string, content string, tokenId int, useTimeSeconds int,
 	isStream bool, group string, other map[string]interface{}) {
 	logger.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s", userId, channelId, modelName, tokenName, content))
@@ -191,10 +262,7 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 		}(),
 		Other: otherStr,
 	}
-	err := LOG_DB.Create(log).Error
-	if err != nil {
-		logger.LogError(c, "failed to record log: "+err.Error())
-	}
+	bufferLog(log)
 	if common.DataExportEnabled {
 		gopool.Go(func() {
 			LogQuotaData(userId, username, params.ModelName, params.Quota, common.GetTimestamp(), params.PromptTokens+params.CompletionTokens)
@@ -329,19 +397,52 @@ type Stat struct {
 }
 
 func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string) (stat Stat) {
-	tx := LOG_DB.Table("logs").Select("sum(quota) quota")
+	// Resolve username aliases once (used by both fast path and normal path)
+	var resolvedUsernames []string
+	if username != "" {
+		DB.Model(&User{}).
+			Where("username = ? OR linux_do_username = ? OR display_name = ?", username, username, username).
+			Pluck("username", &resolvedUsernames)
+	}
 
-	// 为rpm和tpm创建单独的查询
+	// Fast path: all-time total without detailed filters.
+	// Use users.used_quota (O(users)) instead of SUM on logs table (O(millions of logs)).
+	// This preserves the ability to query all-time totals without the performance penalty.
+	if startTimestamp == 0 && endTimestamp == 0 && modelName == "" && tokenName == "" && channel == 0 && group == "" && logType == LogTypeConsume {
+		if username != "" {
+			if len(resolvedUsernames) > 0 {
+				DB.Model(&User{}).Where("username IN ?", resolvedUsernames).
+					Select("COALESCE(SUM(used_quota), 0)").Scan(&stat.Quota)
+			} else {
+				DB.Model(&User{}).Where("username = ?", username).
+					Select("COALESCE(SUM(used_quota), 0)").Scan(&stat.Quota)
+			}
+		} else {
+			DB.Model(&User{}).Select("COALESCE(SUM(used_quota), 0)").Scan(&stat.Quota)
+		}
+		// RPM/TPM still from logs (already bounded to 60 seconds, always fast)
+		rpmTpmQuery := LOG_DB.Table("logs").Select("count(*) rpm, sum(prompt_tokens) + sum(completion_tokens) tpm")
+		rpmTpmQuery = rpmTpmQuery.Where("type = ?", LogTypeConsume)
+		rpmTpmQuery = rpmTpmQuery.Where("created_at >= ?", time.Now().Add(-60*time.Second).Unix())
+		if username != "" {
+			if len(resolvedUsernames) > 0 {
+				rpmTpmQuery = rpmTpmQuery.Where("username IN ?", resolvedUsernames)
+			} else {
+				rpmTpmQuery = rpmTpmQuery.Where("username = ?", username)
+			}
+		}
+		rpmTpmQuery.Scan(&stat)
+		return stat
+	}
+
+	// Normal path: time-bounded or filtered queries use logs table with index support
+	tx := LOG_DB.Table("logs").Select("sum(quota) quota")
 	rpmTpmQuery := LOG_DB.Table("logs").Select("count(*) rpm, sum(prompt_tokens) + sum(completion_tokens) tpm")
 
 	if username != "" {
-		var usernames []string
-		DB.Model(&User{}).
-			Where("username = ? OR linux_do_username = ? OR display_name = ?", username, username, username).
-			Pluck("username", &usernames)
-		if len(usernames) > 0 {
-			tx = tx.Where("username IN ?", usernames)
-			rpmTpmQuery = rpmTpmQuery.Where("username IN ?", usernames)
+		if len(resolvedUsernames) > 0 {
+			tx = tx.Where("username IN ?", resolvedUsernames)
+			rpmTpmQuery = rpmTpmQuery.Where("username IN ?", resolvedUsernames)
 		} else {
 			tx = tx.Where("username = ?", username)
 			rpmTpmQuery = rpmTpmQuery.Where("username = ?", username)

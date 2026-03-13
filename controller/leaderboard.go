@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -26,6 +27,41 @@ type LeaderboardResponse struct {
 	MyRank      *LeaderboardEntry  `json:"my_rank,omitempty"`
 }
 
+type CacheInfo struct {
+	LastUpdated  int64  `json:"last_updated"`
+	RefreshHint  string `json:"refresh_hint"`
+}
+
+func getLeaderboardCacheInfo(period string) *CacheInfo {
+	var lastUpdated time.Time
+	var hint string
+
+	switch period {
+	case "24h":
+		lastUpdated = model.GetLeaderboardCacheLastUpdated24h()
+		hint = "每10分钟更新"
+	case "7d", "14d", "30d":
+		lastUpdated = model.GetLeaderboardCacheLastUpdated()
+		hint = "每日零点更新"
+	case "all":
+		lastUpdated = model.GetLeaderboardCacheLastUpdated()
+		hint = "每日零点更新"
+	default:
+		return nil
+	}
+
+	if lastUpdated.IsZero() {
+		return &CacheInfo{
+			LastUpdated: 0,
+			RefreshHint: hint,
+		}
+	}
+	return &CacheInfo{
+		LastUpdated: lastUpdated.Unix(),
+		RefreshHint: hint,
+	}
+}
+
 func GetUsageLeaderboard(c *gin.Context) {
 	period := c.DefaultQuery("period", "all")
 
@@ -33,30 +69,52 @@ func GetUsageLeaderboard(c *gin.Context) {
 	var myRankEntry *LeaderboardEntry
 
 	if period == "all" {
-		users, err := model.GetUsageLeaderboard(100)
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": err.Error(),
-			})
-			return
-		}
-
-		for i, user := range users {
-			displayName := user.DisplayName
-			if displayName == "" {
-				displayName = "Anonymous"
+		// Try cache first
+		cachedUsers, cached := model.GetCachedAllTimeUserLeaderboard()
+		if cached {
+			for i, user := range cachedUsers {
+				displayName := user.DisplayName
+				if displayName == "" {
+					displayName = "Anonymous"
+				}
+				entries = append(entries, LeaderboardEntry{
+					Rank:            i + 1,
+					DisplayName:     displayName,
+					LinuxDOUsername: user.LinuxDOUsername,
+					LinuxDOAvatar:   user.LinuxDOAvatar,
+					LinuxDOLevel:    user.LinuxDOLevel,
+					RequestCount:    int(user.RequestCount),
+					UsedQuota:       int(user.UsedQuota),
+					AmountUSD:       float64(user.UsedQuota) / common.QuotaPerUnit,
+				})
 			}
-			entries = append(entries, LeaderboardEntry{
-				Rank:            i + 1,
-				DisplayName:     displayName,
-				LinuxDOUsername: user.LinuxDOUsername,
-				LinuxDOAvatar:   user.LinuxDOAvatar,
-				LinuxDOLevel:    user.LinuxDOLevel,
-				RequestCount:    user.RequestCount,
-				UsedQuota:       user.UsedQuota,
-				AmountUSD:       float64(user.UsedQuota) / common.QuotaPerUnit,
-			})
+		} else {
+			// Fallback to direct query
+			users, err := model.GetUsageLeaderboard(100)
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"success": false,
+					"message": err.Error(),
+				})
+				return
+			}
+
+			for i, user := range users {
+				displayName := user.DisplayName
+				if displayName == "" {
+					displayName = "Anonymous"
+				}
+				entries = append(entries, LeaderboardEntry{
+					Rank:            i + 1,
+					DisplayName:     displayName,
+					LinuxDOUsername: user.LinuxDOUsername,
+					LinuxDOAvatar:   user.LinuxDOAvatar,
+					LinuxDOLevel:    user.LinuxDOLevel,
+					RequestCount:    user.RequestCount,
+					UsedQuota:       user.UsedQuota,
+					AmountUSD:       float64(user.UsedQuota) / common.QuotaPerUnit,
+				})
+			}
 		}
 
 		session := sessions.Default(c)
@@ -145,9 +203,10 @@ func GetUsageLeaderboard(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    response,
+		"success":    true,
+		"message":    "",
+		"data":       response,
+		"cache_info": getLeaderboardCacheInfo(period),
 	})
 }
 
@@ -166,7 +225,13 @@ func GetModelLeaderboard(c *gin.Context) {
 	var err error
 
 	if period == "all" {
-		models, err = model.GetModelUsageLeaderboard(100)
+		// Try cache first
+		cachedModels, cached := model.GetCachedAllTimeModelLeaderboard()
+		if cached {
+			models = cachedModels
+		} else {
+			models, err = model.GetModelUsageLeaderboard(100)
+		}
 	} else {
 		// Try to get from cache first for expensive periods (7d, 14d, 30d)
 		cachedModels, cached := model.GetCachedModelLeaderboardByPeriod(period)
@@ -197,9 +262,10 @@ func GetModelLeaderboard(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    entries,
+		"success":    true,
+		"message":    "",
+		"data":       entries,
+		"cache_info": getLeaderboardCacheInfo(period),
 	})
 }
 
@@ -275,5 +341,9 @@ func GetBalanceLeaderboard(c *gin.Context) {
 		"success": true,
 		"message": "",
 		"data":    response,
+		"cache_info": &CacheInfo{
+			LastUpdated: time.Now().Unix(),
+			RefreshHint: "实时数据",
+		},
 	})
 }

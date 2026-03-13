@@ -55,6 +55,7 @@ func main() {
 	}
 
 	defer func() {
+		model.FlushLogBuffer()
 		err := model.CloseDB()
 		if err != nil {
 			common.FatalLog("failed to close database: " + err.Error())
@@ -97,6 +98,7 @@ func main() {
 	if common.IsMasterNode {
 		model.InitLeaderboardCache()
 		model.StartLeaderboardCacheScheduler()
+		model.StartLeaderboard24hCacheScheduler()
 		model.InitUserRankCache()
 		model.StartUserRankCacheScheduler()
 	}
