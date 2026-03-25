@@ -26,8 +26,7 @@ import SettingsSensitiveWords from '../../pages/Setting/Operation/SettingsSensit
 import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
-import SettingsLeaderboard from '../../pages/Setting/Operation/SettingsLeaderboard';
-import SettingsAppeals from '../../pages/Setting/Operation/SettingsAppeals';
+import SettingsCheckin from '../../pages/Setting/Operation/SettingsCheckin';
 import { API, showError, toBoolean } from '../../helpers';
 
 const OperationSetting = () => {
@@ -51,11 +50,6 @@ const OperationSetting = () => {
     DemoSiteEnabled: false,
     SelfUseModeEnabled: false,
 
-    /* 签到设置 */
-    'checkin_setting.enabled': false,
-    'checkin_setting.min_quota': 1000,
-    'checkin_setting.max_quota': 5000,
-
     /* 顶栏模块管理 */
     HeaderNavModules: '',
 
@@ -66,8 +60,6 @@ const OperationSetting = () => {
     CheckSensitiveEnabled: false,
     CheckSensitiveOnPromptEnabled: false,
     SensitiveWords: '',
-    MinMaxTokensCheckEnabled: false,
-    MinMaxTokensValue: 0,
 
     /* 日志设置 */
     LogConsumeEnabled: false,
@@ -78,11 +70,17 @@ const OperationSetting = () => {
     AutomaticDisableChannelEnabled: false,
     AutomaticEnableChannelEnabled: false,
     AutomaticDisableKeywords: '',
+    AutomaticDisableStatusCodes: '401',
+    AutomaticRetryStatusCodes:
+      '100-199,300-399,401-407,409-499,500-503,505-523,525-599',
     'monitor_setting.auto_test_channel_enabled': false,
-    'monitor_setting.auto_test_channel_minutes': 10,
+    'monitor_setting.auto_test_channel_minutes': 10 /* 签到设置 */,
+    'checkin_setting.enabled': false,
+    'checkin_setting.min_quota': 1000,
+    'checkin_setting.max_quota': 10000,
 
-    /* 榜单设置 */
-    LeaderboardHiddenUsers: '',
+    /* 令牌设置 */
+    'token_setting.max_user_tokens': 1000,
   });
 
   let [loading, setLoading] = useState(false);
@@ -95,8 +93,6 @@ const OperationSetting = () => {
       data.forEach((item) => {
         if (typeof inputs[item.key] === 'boolean') {
           newInputs[item.key] = toBoolean(item.value);
-        } else if (typeof inputs[item.key] === 'number') {
-          newInputs[item.key] = Number(item.value) || 0;
         } else {
           newInputs[item.key] = item.value;
         }
@@ -154,14 +150,10 @@ const OperationSetting = () => {
         <Card style={{ marginTop: '10px' }}>
           <SettingsCreditLimit options={inputs} refresh={onRefresh} />
         </Card>
-        {/* 榜单设置 */}
+        {/* 签到设置 */}
         <Card style={{ marginTop: '10px' }}>
-          <SettingsLeaderboard options={inputs} refresh={onRefresh} />
+          <SettingsCheckin options={inputs} refresh={onRefresh} />
         </Card>
-        {/* 申诉管理 */}
-        <div style={{ marginTop: '10px' }}>
-          <SettingsAppeals />
-        </div>
       </Spin>
     </>
   );

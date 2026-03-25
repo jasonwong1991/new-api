@@ -24,10 +24,8 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
     // 默认配置，如果没有传入配置则显示所有模块
     const defaultModules = {
       home: true,
-      ldcStore: true,
       console: true,
       pricing: true,
-      chatRoom: true,
       docs: true,
       about: true,
     };
@@ -42,12 +40,6 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
         to: '/',
       },
       {
-        text: t('LDC商店'),
-        itemKey: 'ldcStore',
-        isExternal: true,
-        externalLink: 'https://store.wzw.pp.ua',
-      },
-      {
         text: t('控制台'),
         itemKey: 'console',
         to: '/console',
@@ -56,11 +48,6 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
         text: t('模型广场'),
         itemKey: 'pricing',
         to: '/pricing',
-      },
-      {
-        text: t('聊天室'),
-        itemKey: 'chatRoom',
-        to: '/chat-room',
       },
       ...(docsLink
         ? [
@@ -73,7 +60,7 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
           ]
         : []),
       {
-        text: t('模型监控'),
+        text: t('关于'),
         itemKey: 'about',
         to: '/about',
       },
@@ -82,21 +69,15 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
     // 根据配置过滤导航链接
     return allLinks.filter((link) => {
       if (link.itemKey === 'docs') {
-        return docsLink && modules.docs !== false;
+        return docsLink && modules.docs;
       }
       if (link.itemKey === 'pricing') {
         // 支持新的pricing配置格式
         return typeof modules.pricing === 'object'
-          ? modules.pricing.enabled !== false
-          : modules.pricing !== false;
+          ? modules.pricing.enabled
+          : modules.pricing;
       }
-      if (link.itemKey === 'ldcStore') {
-        return modules.ldcStore !== false;
-      }
-      if (link.itemKey === 'chatRoom') {
-        return modules.chatRoom !== false;
-      }
-      return modules[link.itemKey] !== false;
+      return modules[link.itemKey] === true;
     });
   }, [t, docsLink, headerNavModules]);
 

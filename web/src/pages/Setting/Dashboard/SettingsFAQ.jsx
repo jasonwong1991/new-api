@@ -29,8 +29,6 @@ import {
   Modal,
   Switch,
   Tooltip,
-  Tag,
-  Select,
 } from '@douyinfe/semi-ui';
 import {
   IllustrationNoResult,
@@ -39,7 +37,6 @@ import {
 import { Plus, Edit, Trash2, Save, HelpCircle } from 'lucide-react';
 import { API, showError, showSuccess } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
-import useUnsavedChangesWarning from '../../../hooks/common/useUnsavedChangesWarning';
 
 const { Text } = Typography;
 
@@ -57,7 +54,6 @@ const SettingsFAQ = ({ options, refresh }) => {
   const [faqForm, setFaqForm] = useState({
     question: '',
     answer: '',
-    category: 'default_group',
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -66,24 +62,7 @@ const SettingsFAQ = ({ options, refresh }) => {
   // 面板启用状态
   const [panelEnabled, setPanelEnabled] = useState(true);
 
-  // 未保存更改警告
-  useUnsavedChangesWarning(hasChanges, t('您有未保存的常见问答更改，确定要离开吗？'));
-
   const columns = [
-    {
-      title: t('分类'),
-      dataIndex: 'category',
-      key: 'category',
-      width: 140,
-      render: (text) => {
-        const isClaudeCode = text === 'claude_code';
-        return (
-          <Tag color={isClaudeCode ? 'purple' : 'blue'}>
-            {isClaudeCode ? t('Claude Code') : t('Default 分组')}
-          </Tag>
-        );
-      },
-    },
     {
       title: t('问题标题'),
       dataIndex: 'question',
@@ -187,7 +166,6 @@ const SettingsFAQ = ({ options, refresh }) => {
     setFaqForm({
       question: '',
       answer: '',
-      category: 'default_group',
     });
     setShowFaqModal(true);
   };
@@ -197,7 +175,6 @@ const SettingsFAQ = ({ options, refresh }) => {
     setFaqForm({
       question: faq.question,
       answer: faq.answer,
-      category: faq.category || 'default_group',
     });
     setShowFaqModal(true);
   };
@@ -265,10 +242,10 @@ const SettingsFAQ = ({ options, refresh }) => {
     try {
       const parsed = JSON.parse(faqStr);
       const list = Array.isArray(parsed) ? parsed : [];
+      // 确保每个项目都有id
       const listWithIds = list.map((item, index) => ({
         ...item,
         id: item.id || index + 1,
-        category: item.category || 'default_group',
       }));
       setFaqList(listWithIds);
     } catch (error) {
@@ -468,16 +445,6 @@ const SettingsFAQ = ({ options, refresh }) => {
           initValues={faqForm}
           key={editingFaq ? editingFaq.id : 'new'}
         >
-          <Form.Select
-            field='category'
-            label={t('问题分类')}
-            style={{ width: '100%' }}
-            initValue={faqForm.category}
-            onChange={(value) => setFaqForm({ ...faqForm, category: value })}
-          >
-            <Select.Option value='claude_code'>{t('Claude Code 相关')}</Select.Option>
-            <Select.Option value='default_group'>{t('Default 分组相关')}</Select.Option>
-          </Form.Select>
           <Form.Input
             field='question'
             label={t('问题标题')}

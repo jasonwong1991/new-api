@@ -42,6 +42,7 @@ import {
 } from '../../helpers';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
+import CustomOAuthSetting from './CustomOAuthSetting';
 
 const SystemSetting = () => {
   const { t } = useTranslation();
@@ -80,7 +81,6 @@ const SystemSetting = () => {
     TurnstileSiteKey: '',
     TurnstileSecretKey: '',
     RegisterEnabled: '',
-    InvitationCodeRequired: '',
     'passkey.enabled': '',
     'passkey.rp_display_name': '',
     'passkey.rp_id': '',
@@ -178,7 +178,6 @@ const SystemSetting = () => {
           case 'WeChatAuthEnabled':
           case 'TelegramOAuthEnabled':
           case 'RegisterEnabled':
-          case 'InvitationCodeRequired':
           case 'TurnstileCheckEnabled':
           case 'EmailDomainRestrictionEnabled':
           case 'EmailAliasRestrictionEnabled':
@@ -244,10 +243,10 @@ const SystemSetting = () => {
     try {
       // 分离 checkbox 类型的选项和其他选项
       const checkboxOptions = options.filter((opt) =>
-        opt.key.toLowerCase().endsWith('enabled') || opt.key === 'InvitationCodeRequired',
+        opt.key.toLowerCase().endsWith('enabled'),
       );
       const otherOptions = options.filter(
-        (opt) => !opt.key.toLowerCase().endsWith('enabled') && opt.key !== 'InvitationCodeRequired',
+        (opt) => !opt.key.toLowerCase().endsWith('enabled'),
       );
 
       // 处理 checkbox 类型的选项
@@ -483,10 +482,14 @@ const SystemSetting = () => {
     const options = [];
 
     if (originInputs['discord.client_id'] !== inputs['discord.client_id']) {
-      options.push({ key: 'discord.client_id', value: inputs['discord.client_id'] });
+      options.push({
+        key: 'discord.client_id',
+        value: inputs['discord.client_id'],
+      });
     }
     if (
-      originInputs['discord.client_secret'] !== inputs['discord.client_secret'] &&
+      originInputs['discord.client_secret'] !==
+        inputs['discord.client_secret'] &&
       inputs['discord.client_secret'] !== ''
     ) {
       options.push({
@@ -747,8 +750,8 @@ const SystemSetting = () => {
                       rel='noreferrer'
                     >
                       new-api-worker
-                    </a>
-                    {' '}{t('或其兼容new-api-worker格式的其他版本')}
+                    </a>{' '}
+                    {t('或其兼容new-api-worker格式的其他版本')}
                   </Text>
                   <Row
                     gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
@@ -1020,15 +1023,6 @@ const SystemSetting = () => {
                         }
                       >
                         {t('允许新用户注册')}
-                      </Form.Checkbox>
-                      <Form.Checkbox
-                        field='InvitationCodeRequired'
-                        noLabel
-                        onChange={(e) =>
-                          handleCheckboxChange('InvitationCodeRequired', e)
-                        }
-                      >
-                        {t('注册需要邀请码')}
                       </Form.Checkbox>
                       <Form.Checkbox
                         field='TurnstileCheckEnabled'
@@ -1540,6 +1534,8 @@ const SystemSetting = () => {
                   </Button>
                 </Form.Section>
               </Card>
+
+              <CustomOAuthSetting serverAddress={inputs.ServerAddress} />
 
               <Card>
                 <Form.Section text={t('配置 WeChat Server')}>

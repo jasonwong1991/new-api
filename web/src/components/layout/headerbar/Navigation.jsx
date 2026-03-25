@@ -60,9 +60,6 @@ const Navigation = ({
       if (link.itemKey === 'pricing' && pricingRequireAuth && !userState.user) {
         targetPath = '/login';
       }
-      if (link.itemKey === 'chatRoom' && !userState.user) {
-        targetPath = '/login';
-      }
 
       return (
         <Link key={link.itemKey} to={targetPath} className={commonLinkClasses}>

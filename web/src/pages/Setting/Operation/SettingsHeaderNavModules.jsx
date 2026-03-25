@@ -185,8 +185,8 @@ export default function SettingsHeaderNavModules(props) {
     },
     {
       key: 'about',
-      title: t('模型监控'),
-      description: t('模型监控页面'),
+      title: t('关于'),
+      description: t('关于系统的详细信息'),
     },
   ];
 

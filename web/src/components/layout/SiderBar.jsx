@@ -35,10 +35,9 @@ const routerMap = {
   channel: '/console/channel',
   token: '/console/token',
   redemption: '/console/redemption',
-  invitation: '/console/invitation',
   topup: '/console/topup',
   user: '/console/user',
-  'archived-user': '/console/archived-user',
+  subscription: '/console/subscription',
   log: '/console/log',
   midjourney: '/console/midjourney',
   setting: '/console/setting',
@@ -47,6 +46,7 @@ const routerMap = {
   pricing: '/pricing',
   task: '/console/task',
   models: '/console/models',
+  deployment: '/console/deployment',
   playground: '/console/playground',
   personal: '/console/personal',
 };
@@ -154,9 +154,21 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {
+        text: t('订阅管理'),
+        itemKey: 'subscription',
+        to: '/subscription',
+        className: isAdmin() ? '' : 'tableHiddle',
+      },
+      {
         text: t('模型管理'),
         itemKey: 'models',
         to: '/console/models',
+        className: isAdmin() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('模型部署'),
+        itemKey: 'deployment',
+        to: '/deployment',
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {
@@ -166,21 +178,9 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {
-        text: t('邀请码管理'),
-        itemKey: 'invitation',
-        to: '/invitation',
-        className: isAdmin() ? '' : 'tableHiddle',
-      },
-      {
         text: t('用户管理'),
         itemKey: 'user',
         to: '/user',
-        className: isAdmin() ? '' : 'tableHiddle',
-      },
-      {
-        text: t('归档用户'),
-        itemKey: 'archived-user',
-        to: '/console/archived-user',
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {
@@ -251,9 +251,9 @@ const SiderBar = ({ onNavigate = () => {} }) => {
             for (let key in chats[i]) {
               let link = chats[i][key];
               if (typeof link !== 'string') continue; // 确保链接是字符串
-              if (link.startsWith('fluent')) {
+              if (link.startsWith('fluent') || link.startsWith('ccswitch')) {
                 shouldSkip = true;
-                break; // 跳过 Fluent Read
+                break;
               }
               chat.text = key;
               chat.itemKey = 'chat' + i;
@@ -391,7 +391,6 @@ const SiderBar = ({ onNavigate = () => {} }) => {
       className='sidebar-container'
       style={{
         width: 'var(--sidebar-current-width)',
-        background: 'var(--semi-color-bg-0)',
       }}
     >
       <SkeletonWrapper

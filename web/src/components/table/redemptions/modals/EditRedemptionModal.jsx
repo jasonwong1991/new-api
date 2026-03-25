@@ -62,7 +62,6 @@ const EditRedemptionModal = (props) => {
     name: '',
     quota: 100000,
     count: 1,
-    redeem_count: 1,
     expired_time: null,
   });
 
@@ -106,7 +105,6 @@ const EditRedemptionModal = (props) => {
     let localInputs = { ...values };
     localInputs.count = parseInt(localInputs.count) || 0;
     localInputs.quota = parseInt(localInputs.quota) || 0;
-    localInputs.redeem_count = parseInt(localInputs.redeem_count) || 0;
     localInputs.name = name;
     if (!localInputs.expired_time) {
       localInputs.expired_time = 0;
@@ -341,16 +339,6 @@ const EditRedemptionModal = (props) => {
                         />
                       </Col>
                     )}
-                    <Col span={12}>
-                      <Form.InputNumber
-                        field='redeem_count'
-                        label={t('兑换次数')}
-                        min={0}
-                        style={{ width: '100%' }}
-                        extraText={t('0 表示无限兑换')}
-                        showClear
-                      />
-                    </Col>
                   </Row>
                 </Card>
               </div>
