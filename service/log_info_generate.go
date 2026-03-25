@@ -68,9 +68,115 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 		adminInfo["local_count_tokens"] = isLocalCountTokens
 	}
 
+	AppendChannelAffinityAdminInfo(ctx, adminInfo)
+
 	other["admin_info"] = adminInfo
 	appendRequestPath(ctx, relayInfo, other)
+	appendRequestConversionChain(relayInfo, other)
+	appendFinalRequestFormat(relayInfo, other)
+	appendBillingInfo(relayInfo, other)
+	appendParamOverrideInfo(relayInfo, other)
 	return other
+}
+
+func appendParamOverrideInfo(relayInfo *relaycommon.RelayInfo, other map[string]interface{}) {
+	if relayInfo == nil || other == nil || len(relayInfo.ParamOverrideAudit) == 0 {
+		return
+	}
+	other["po"] = relayInfo.ParamOverrideAudit
+}
+
+func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interface{}) {
+	if relayInfo == nil || other == nil {
+		return
+	}
+	// billing_source: "wallet" or "subscription"
+	if relayInfo.BillingSource != "" {
+		other["billing_source"] = relayInfo.BillingSource
+	}
+	if relayInfo.UserSetting.BillingPreference != "" {
+		other["billing_preference"] = relayInfo.UserSetting.BillingPreference
+	}
+	if relayInfo.BillingSource == "subscription" {
+		if relayInfo.SubscriptionId != 0 {
+			other["subscription_id"] = relayInfo.SubscriptionId
+		}
+		if relayInfo.SubscriptionPreConsumed > 0 {
+			other["subscription_pre_consumed"] = relayInfo.SubscriptionPreConsumed
+		}
+		// post_delta: settlement delta applied after actual usage is known (can be negative for refund)
+		if relayInfo.SubscriptionPostDelta != 0 {
+			other["subscription_post_delta"] = relayInfo.SubscriptionPostDelta
+		}
+		if relayInfo.SubscriptionPlanId != 0 {
+			other["subscription_plan_id"] = relayInfo.SubscriptionPlanId
+		}
+		if relayInfo.SubscriptionPlanTitle != "" {
+			other["subscription_plan_title"] = relayInfo.SubscriptionPlanTitle
+		}
+		// Compute "this request" subscription consumed + remaining
+		consumed := relayInfo.SubscriptionPreConsumed + relayInfo.SubscriptionPostDelta
+		usedFinal := relayInfo.SubscriptionAmountUsedAfterPreConsume + relayInfo.SubscriptionPostDelta
+		if consumed < 0 {
+			consumed = 0
+		}
+		if usedFinal < 0 {
+			usedFinal = 0
+		}
+		if relayInfo.SubscriptionAmountTotal > 0 {
+			remain := relayInfo.SubscriptionAmountTotal - usedFinal
+			if remain < 0 {
+				remain = 0
+			}
+			other["subscription_total"] = relayInfo.SubscriptionAmountTotal
+			other["subscription_used"] = usedFinal
+			other["subscription_remain"] = remain
+		}
+		if consumed > 0 {
+			other["subscription_consumed"] = consumed
+		}
+		// Wallet quota is not deducted when billed from subscription.
+		other["wallet_quota_deducted"] = 0
+	}
+}
+
+func appendRequestConversionChain(relayInfo *relaycommon.RelayInfo, other map[string]interface{}) {
+	if relayInfo == nil || other == nil {
+		return
+	}
+	if len(relayInfo.RequestConversionChain) == 0 {
+		return
+	}
+	chain := make([]string, 0, len(relayInfo.RequestConversionChain))
+	for _, f := range relayInfo.RequestConversionChain {
+		switch f {
+		case types.RelayFormatOpenAI:
+			chain = append(chain, "OpenAI Compatible")
+		case types.RelayFormatClaude:
+			chain = append(chain, "Claude Messages")
+		case types.RelayFormatGemini:
+			chain = append(chain, "Google Gemini")
+		case types.RelayFormatOpenAIResponses:
+			chain = append(chain, "OpenAI Responses")
+		default:
+			chain = append(chain, string(f))
+		}
+	}
+	if len(chain) == 0 {
+		return
+	}
+	other["request_conversion"] = chain
+}
+
+func appendFinalRequestFormat(relayInfo *relaycommon.RelayInfo, other map[string]interface{}) {
+	if relayInfo == nil || other == nil {
+		return
+	}
+	if relayInfo.GetFinalRequestRelayFormat() == types.RelayFormatClaude {
+		// claude indicates the final upstream request format is Claude Messages.
+		// Frontend log rendering uses this to keep the original Claude input display.
+		other["claude"] = true
+	}
 }
 
 func GenerateWssOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.RealtimeUsage, modelRatio, groupRatio, completionRatio, audioRatio, audioCompletionRatio, modelPrice, userGroupRatio float64) map[string]interface{} {
@@ -118,7 +224,7 @@ func GenerateClaudeOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	return info
 }
 
-func GenerateMjOtherInfo(relayInfo *relaycommon.RelayInfo, priceData types.PerCallPriceData) map[string]interface{} {
+func GenerateMjOtherInfo(relayInfo *relaycommon.RelayInfo, priceData types.PriceData) map[string]interface{} {
 	other := make(map[string]interface{})
 	other["model_price"] = priceData.ModelPrice
 	other["group_ratio"] = priceData.GroupRatioInfo.GroupRatio

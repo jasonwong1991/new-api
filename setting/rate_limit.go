@@ -16,10 +16,6 @@ var ModelRequestRateLimitSuccessCount = 1000
 var ModelRequestRateLimitGroup = map[string][2]int{}
 var ModelRequestRateLimitMutex sync.RWMutex
 
-// RateLimitExemptWhitelist stores user IDs that are exempt from all rate limits (highest priority)
-var RateLimitExemptWhitelist = map[int]struct{}{}
-var RateLimitExemptWhitelistMutex sync.RWMutex
-
 func ModelRequestRateLimitGroup2JSONString() string {
 	ModelRequestRateLimitMutex.RLock()
 	defer ModelRequestRateLimitMutex.RUnlock()
@@ -32,8 +28,8 @@ func ModelRequestRateLimitGroup2JSONString() string {
 }
 
 func UpdateModelRequestRateLimitGroupByJSONString(jsonStr string) error {
-	ModelRequestRateLimitMutex.Lock()
-	defer ModelRequestRateLimitMutex.Unlock()
+	ModelRequestRateLimitMutex.RLock()
+	defer ModelRequestRateLimitMutex.RUnlock()
 
 	ModelRequestRateLimitGroup = make(map[string][2]int)
 	return json.Unmarshal([]byte(jsonStr), &ModelRequestRateLimitGroup)
@@ -69,74 +65,5 @@ func CheckModelRequestRateLimitGroup(jsonStr string) error {
 		}
 	}
 
-	return nil
-}
-
-// IsUserExemptFromRateLimit checks if a user is in the rate limit exemption whitelist (highest priority)
-func IsUserExemptFromRateLimit(userId int) bool {
-	RateLimitExemptWhitelistMutex.RLock()
-	defer RateLimitExemptWhitelistMutex.RUnlock()
-	_, exists := RateLimitExemptWhitelist[userId]
-	return exists
-}
-
-// RateLimitExemptWhitelist2JSONString converts the whitelist map to JSON array string
-func RateLimitExemptWhitelist2JSONString() string {
-	RateLimitExemptWhitelistMutex.RLock()
-	defer RateLimitExemptWhitelistMutex.RUnlock()
-
-	userIds := make([]int, 0, len(RateLimitExemptWhitelist))
-	for userId := range RateLimitExemptWhitelist {
-		userIds = append(userIds, userId)
-	}
-	jsonBytes, err := json.Marshal(userIds)
-	if err != nil {
-		common.SysLog("error marshalling rate limit exempt whitelist: " + err.Error())
-		return "[]"
-	}
-	return string(jsonBytes)
-}
-
-// UpdateRateLimitExemptWhitelistByJSONString updates the whitelist from JSON array string
-func UpdateRateLimitExemptWhitelistByJSONString(jsonStr string) error {
-	RateLimitExemptWhitelistMutex.Lock()
-	defer RateLimitExemptWhitelistMutex.Unlock()
-
-	if jsonStr == "" {
-		RateLimitExemptWhitelist = make(map[int]struct{})
-		return nil
-	}
-
-	var userIds []int
-	err := json.Unmarshal([]byte(jsonStr), &userIds)
-	if err != nil {
-		return err
-	}
-
-	newWhitelist := make(map[int]struct{})
-	for _, userId := range userIds {
-		if userId > 0 {
-			newWhitelist[userId] = struct{}{}
-		}
-	}
-	RateLimitExemptWhitelist = newWhitelist
-	return nil
-}
-
-// CheckRateLimitExemptWhitelist validates the whitelist JSON string
-func CheckRateLimitExemptWhitelist(jsonStr string) error {
-	if jsonStr == "" {
-		return nil
-	}
-	var userIds []int
-	err := json.Unmarshal([]byte(jsonStr), &userIds)
-	if err != nil {
-		return fmt.Errorf("invalid JSON array format: %v", err)
-	}
-	for _, userId := range userIds {
-		if userId <= 0 {
-			return fmt.Errorf("user ID must be positive integer, got: %d", userId)
-		}
-	}
 	return nil
 }

@@ -33,50 +33,21 @@ func GetAllEnableAbilityWithChannels() ([]AbilityWithChannel, error) {
 	err := DB.Table("abilities").
 		Select("abilities.*, channels.type as channel_type").
 		Joins("left join channels on abilities.channel_id = channels.id").
-		Where("abilities.enabled = ? AND channels.status = ?", true, common.ChannelStatusEnabled).
+		Where("abilities.enabled = ?", true).
 		Scan(&abilities).Error
 	return abilities, err
 }
 
 func GetGroupEnabledModels(group string) []string {
-	// Try memory cache first (data already loaded by InitChannelCache)
-	if common.MemoryCacheEnabled {
-		channelSyncLock.RLock()
-		if model2channels, ok := group2model2channels[group]; ok {
-			models := make([]string, 0, len(model2channels))
-			for model := range model2channels {
-				models = append(models, model)
-			}
-			channelSyncLock.RUnlock()
-			return models
-		}
-		channelSyncLock.RUnlock()
-	}
-	// Fallback to DB query when memory cache is not enabled
 	var models []string
+	// Find distinct models
 	DB.Table("abilities").Where(commonGroupCol+" = ? and enabled = ?", group, true).Distinct("model").Pluck("model", &models)
 	return models
 }
 
 func GetEnabledModels() []string {
-	// Try memory cache first
-	if common.MemoryCacheEnabled {
-		channelSyncLock.RLock()
-		modelSet := make(map[string]bool)
-		for _, model2channels := range group2model2channels {
-			for model := range model2channels {
-				modelSet[model] = true
-			}
-		}
-		channelSyncLock.RUnlock()
-		models := make([]string, 0, len(modelSet))
-		for model := range modelSet {
-			models = append(models, model)
-		}
-		return models
-	}
-	// Fallback to DB query
 	var models []string
+	// Find distinct models
 	DB.Table("abilities").Where("enabled = ?", true).Distinct("model").Pluck("model", &models)
 	return models
 }
@@ -178,23 +149,15 @@ func (channel *Channel) AddAbilities(tx *gorm.DB) error {
 	abilitySet := make(map[string]struct{})
 	abilities := make([]Ability, 0, len(models_))
 	for _, model := range models_ {
-		model = strings.TrimSpace(model)
-		if model == "" {
-			continue
-		}
-		abilityModel := model
-		if channel.ModelNamePrefix != nil && *channel.ModelNamePrefix != "" {
-			abilityModel = *channel.ModelNamePrefix + "/" + model
-		}
 		for _, group := range groups_ {
-			key := group + "|" + abilityModel
+			key := group + "|" + model
 			if _, exists := abilitySet[key]; exists {
 				continue
 			}
 			abilitySet[key] = struct{}{}
 			ability := Ability{
 				Group:     group,
-				Model:     abilityModel,
+				Model:     model,
 				ChannelId: channel.Id,
 				Enabled:   channel.Status == common.ChannelStatusEnabled,
 				Priority:  channel.Priority,
@@ -258,23 +221,15 @@ func (channel *Channel) UpdateAbilities(tx *gorm.DB) error {
 	abilitySet := make(map[string]struct{})
 	abilities := make([]Ability, 0, len(models_))
 	for _, model := range models_ {
-		model = strings.TrimSpace(model)
-		if model == "" {
-			continue
-		}
-		abilityModel := model
-		if channel.ModelNamePrefix != nil && *channel.ModelNamePrefix != "" {
-			abilityModel = *channel.ModelNamePrefix + "/" + model
-		}
 		for _, group := range groups_ {
-			key := group + "|" + abilityModel
+			key := group + "|" + model
 			if _, exists := abilitySet[key]; exists {
 				continue
 			}
 			abilitySet[key] = struct{}{}
 			ability := Ability{
 				Group:     group,
-				Model:     abilityModel,
+				Model:     model,
 				ChannelId: channel.Id,
 				Enabled:   channel.Status == common.ChannelStatusEnabled,
 				Priority:  channel.Priority,

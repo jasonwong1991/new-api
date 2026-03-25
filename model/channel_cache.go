@@ -46,18 +46,10 @@ func InitChannelCache() {
 		for _, group := range groups {
 			models := strings.Split(channel.Models, ",")
 			for _, model := range models {
-				model = strings.TrimSpace(model)
-				if model == "" {
-					continue
+				if _, ok := newGroup2model2channels[group][model]; !ok {
+					newGroup2model2channels[group][model] = make([]int, 0)
 				}
-				abilityModel := model
-				if channel.ModelNamePrefix != nil && *channel.ModelNamePrefix != "" {
-					abilityModel = *channel.ModelNamePrefix + "/" + model
-				}
-				if _, ok := newGroup2model2channels[group][abilityModel]; !ok {
-					newGroup2model2channels[group][abilityModel] = make([]int, 0)
-				}
-				newGroup2model2channels[group][abilityModel] = append(newGroup2model2channels[group][abilityModel], channel.Id)
+				newGroup2model2channels[group][model] = append(newGroup2model2channels[group][model], channel.Id)
 			}
 		}
 	}

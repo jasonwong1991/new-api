@@ -1,21 +1,17 @@
 package middleware
 
 import (
-	"strings"
-
 	"github.com/gin-gonic/gin"
 )
 
 func Cache() func(c *gin.Context) {
 	return func(c *gin.Context) {
-		uri := c.Request.RequestURI
-		if uri == "/" || strings.HasSuffix(uri, ".html") {
-			// HTML files: short cache to ensure users get latest version
-			c.Header("Cache-Control", "no-cache, max-age=60")
+		if c.Request.RequestURI == "/" {
+			c.Header("Cache-Control", "no-cache")
 		} else {
-			// Static assets (JS/CSS/images with hash fingerprints): long cache
 			c.Header("Cache-Control", "max-age=604800") // one week
 		}
+		c.Header("Cache-Version", "b688f2fb5be447c25e5aa3bd063087a83db32a288bf6a4f35f2d8db310e40b14")
 		c.Next()
 	}
 }

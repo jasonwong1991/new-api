@@ -105,8 +105,8 @@ func randomQuota(min, max int) int {
 }
 
 func GetCheckInStatus(c *gin.Context) {
-	cfg := operation_setting.GetCheckInSetting()
-	minQuota, maxQuota := operation_setting.GetCheckInQuotaRange()
+	cfg := operation_setting.GetCheckinSetting()
+	minQuota, maxQuota := operation_setting.GetCheckinQuotaRange()
 	resp := gin.H{
 		"enabled":    cfg.Enabled,
 		"min_quota":  minQuota,
@@ -134,12 +134,12 @@ func GetCheckInStatus(c *gin.Context) {
 }
 
 func PostCheckIn(c *gin.Context) {
-	cfg := operation_setting.GetCheckInSetting()
+	cfg := operation_setting.GetCheckinSetting()
 	if !cfg.Enabled {
 		common.ApiErrorMsg(c, "签到功能未开启")
 		return
 	}
-	minQuota, maxQuota := operation_setting.GetCheckInQuotaRange()
+	minQuota, maxQuota := operation_setting.GetCheckinQuotaRange()
 	if maxQuota <= 0 {
 		common.ApiErrorMsg(c, "管理员尚未配置有效的签到额度")
 		return

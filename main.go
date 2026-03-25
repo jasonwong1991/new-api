@@ -14,17 +14,20 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/controller"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/oauth"
+	"github.com/QuantumNous/new-api/relay"
 	"github.com/QuantumNous/new-api/router"
 	"github.com/QuantumNous/new-api/service"
+	_ "github.com/QuantumNous/new-api/setting/performance_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
-	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
@@ -55,7 +58,6 @@ func main() {
 	}
 
 	defer func() {
-		model.FlushLogBuffer()
 		err := model.CloseDB()
 		if err != nil {
 			common.FatalLog("failed to close database: " + err.Error())
@@ -113,6 +115,24 @@ func main() {
 
 	go controller.AutomaticallyTestChannels()
 
+	// Codex credential auto-refresh check every 10 minutes, refresh when expires within 1 day
+	service.StartCodexCredentialAutoRefreshTask()
+
+	// Subscription quota reset task (daily/weekly/monthly/custom)
+	service.StartSubscriptionQuotaResetTask()
+
+	// Wire task polling adaptor factory (breaks service -> relay import cycle)
+	service.GetTaskAdaptorFunc = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
+		a := relay.GetTaskAdaptor(platform)
+		if a == nil {
+			return nil
+		}
+		return a
+	}
+
+	// Channel upstream model update check task
+	controller.StartChannelUpstreamModelUpdateTask()
+
 	if common.IsMasterNode && constant.UpdateTask {
 		gopool.Go(func() {
 			controller.UpdateMidjourneyTaskBulk()
@@ -135,6 +155,11 @@ func main() {
 		common.SysLog("pprof enabled")
 	}
 
+	err = common.StartPyroScope()
+	if err != nil {
+		common.SysError(fmt.Sprintf("start pyroscope error : %v", err))
+	}
+
 	// Initialize HTTP server
 	server := gin.New()
 	server.Use(gin.CustomRecovery(func(c *gin.Context, err any) {
@@ -149,24 +174,11 @@ func main() {
 	// This will cause SSE not to work!!!
 	//server.Use(gzip.Gzip(gzip.DefaultCompression))
 	server.Use(middleware.RequestId())
+	server.Use(middleware.PoweredBy())
+	server.Use(middleware.I18n())
 	middleware.SetUpLogger(server)
 	// Initialize session store
-	var store sessions.Store
-	if common.RedisEnabled {
-		// Use Redis store for session persistence across container restarts
-		redisOpt := common.ParseRedisOption()
-		var err error
-		store, err = redis.NewStore(10, redisOpt.Network, redisOpt.Addr, redisOpt.Password, []byte(common.SessionSecret))
-		if err != nil {
-			common.FatalLog("failed to initialize Redis session store: " + err.Error())
-		}
-		common.SysLog("Session store: Redis (persistent across restarts)")
-	} else {
-		// Fallback to cookie store when Redis is not enabled
-		store = cookie.NewStore([]byte(common.SessionSecret))
-		common.SysLog("Session store: Cookie (sessions will be lost on restart)")
-	}
-
+	store := cookie.NewStore([]byte(common.SessionSecret))
 	store.Options(sessions.Options{
 		Path:     "/",
 		MaxAge:   2592000, // 30 days
@@ -209,6 +221,7 @@ func InjectUmamiAnalytics() {
 		analyticsInjectBuilder.WriteString(umamiSiteID)
 		analyticsInjectBuilder.WriteString("\"></script>")
 	}
+	analyticsInjectBuilder.WriteString("<!--Umami QuantumNous-->\n")
 	analyticsInject := analyticsInjectBuilder.String()
 	indexPage = bytes.ReplaceAll(indexPage, []byte("<!--umami-->\n"), []byte(analyticsInject))
 }
@@ -230,6 +243,7 @@ func InjectGoogleAnalytics() {
 		analyticsInjectBuilder.WriteString("');")
 		analyticsInjectBuilder.WriteString("</script>")
 	}
+	analyticsInjectBuilder.WriteString("<!--Google Analytics QuantumNous-->\n")
 	analyticsInject := analyticsInjectBuilder.String()
 	indexPage = bytes.ReplaceAll(indexPage, []byte("<!--Google Analytics-->\n"), []byte(analyticsInject))
 }
@@ -268,6 +282,9 @@ func InitResources() error {
 	// Initialize options, should after model.InitDB()
 	model.InitOptionMap()
 
+	// 清理旧的磁盘缓存文件
+	common.CleanupOldCacheFiles()
+
 	// 初始化模型
 	model.GetPricing()
 
@@ -282,5 +299,27 @@ func InitResources() error {
 	if err != nil {
 		return err
 	}
+
+	// 启动系统监控
+	common.StartSystemMonitor()
+
+	// Initialize i18n
+	err = i18n.Init()
+	if err != nil {
+		common.SysError("failed to initialize i18n: " + err.Error())
+		// Don't return error, i18n is not critical
+	} else {
+		common.SysLog("i18n initialized with languages: " + strings.Join(i18n.SupportedLanguages(), ", "))
+	}
+	// Register user language loader for lazy loading
+	i18n.SetUserLangLoader(model.GetUserLanguage)
+
+	// Load custom OAuth providers from database
+	err = oauth.LoadCustomProviders()
+	if err != nil {
+		common.SysError("failed to load custom OAuth providers: " + err.Error())
+		// Don't return error, custom OAuth is not critical
+	}
+
 	return nil
 }

@@ -1,13 +1,12 @@
 package model
 
 import (
-	"encoding/hex"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -16,6 +15,8 @@ import (
 	"github.com/bytedance/gopkg/util/gopool"
 	"gorm.io/gorm"
 )
+
+const UserNameMaxLength = 20
 
 // User if you add sensitive fields, don't forget to clean them in setupLogin function.
 // Otherwise, the sensitive information will be saved on local storage in plain text!
@@ -34,7 +35,6 @@ type User struct {
 	WeChatId         string         `json:"wechat_id" gorm:"column:wechat_id;index"`
 	TelegramId       string         `json:"telegram_id" gorm:"column:telegram_id;index"`
 	VerificationCode string         `json:"verification_code" gorm:"-:all"`                                    // this field is only for Email verification, don't save it to database!
-	InvitationCode   string         `json:"invitation_code" gorm:"-:all"`                                      // this field is only for registration validation, don't save it to database!
 	AccessToken      *string        `json:"access_token" gorm:"type:char(32);column:access_token;uniqueIndex"` // this token is for system management
 	Quota            int            `json:"quota" gorm:"type:int;default:0"`
 	UsedQuota        int            `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
@@ -50,11 +50,11 @@ type User struct {
 	LinuxDOUsername  string         `json:"linux_do_username" gorm:"column:linux_do_username;type:varchar(64)"`
 	LinuxDOAvatar    string         `json:"linux_do_avatar" gorm:"column:linux_do_avatar;type:varchar(512)"`
 	LinuxDOLevel     int            `json:"linux_do_level" gorm:"column:linux_do_level;type:int;default:0"`
+	CreatedAt        int64          `json:"created_at" gorm:"bigint;index;autoCreateTime"`
+	InvitationCodeUsed string       `json:"invitation_code_used" gorm:"type:varchar(32);column:invitation_code_used;index"`
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
-	Remark             string         `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
-	StripeCustomer     string         `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
-	CreatedAt          int64          `json:"created_at" gorm:"bigint;index;autoCreateTime"`
-	InvitationCodeUsed string         `json:"invitation_code_used" gorm:"type:varchar(32);column:invitation_code_used;index"`
+	Remark           string         `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
+	StripeCustomer   string         `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
 }
 
 func (user *User) ToBaseUser() *UserBase {
@@ -227,7 +227,7 @@ func GetAllUsers(pageInfo *common.PageInfo) (users []*User, total int64, err err
 	return users, total, nil
 }
 
-func SearchUsers(keyword string, group string, status string, startIdx int, num int) ([]*User, int64, error) {
+func SearchUsers(keyword string, group string, startIdx int, num int) ([]*User, int64, error) {
 	var users []*User
 	var total int64
 	var err error
@@ -246,46 +246,30 @@ func SearchUsers(keyword string, group string, status string, startIdx int, num 
 	// 构建基础查询
 	query := tx.Unscoped().Model(&User{})
 
-	// 状态过滤
-	if status != "" {
-		switch status {
-		case "enabled":
-			query = query.Where("status = ? AND deleted_at IS NULL", common.UserStatusEnabled)
-		case "disabled":
-			query = query.Where("status = ? AND deleted_at IS NULL", common.UserStatusDisabled)
-		case "deleted":
-			query = query.Where("deleted_at IS NOT NULL")
-		}
-	}
-
 	// 构建搜索条件
-	if keyword != "" {
-		likeCondition := "username LIKE ? OR email LIKE ? OR display_name LIKE ? OR linux_do_username LIKE ?"
+	likeCondition := "username LIKE ? OR email LIKE ? OR display_name LIKE ?"
 
-		// 尝试将关键字转换为整数ID
-		keywordInt, convErr := strconv.Atoi(keyword)
-		if convErr == nil {
-			// 如果是数字，同时搜索ID和其他字段
-			likeCondition = "id = ? OR " + likeCondition
-			if group != "" {
-				query = query.Where("("+likeCondition+") AND "+commonGroupCol+" = ?",
-					keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
-			} else {
-				query = query.Where(likeCondition,
-					keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
-			}
+	// 尝试将关键字转换为整数ID
+	keywordInt, err := strconv.Atoi(keyword)
+	if err == nil {
+		// 如果是数字，同时搜索ID和其他字段
+		likeCondition = "id = ? OR " + likeCondition
+		if group != "" {
+			query = query.Where("("+likeCondition+") AND "+commonGroupCol+" = ?",
+				keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
 		} else {
-			// 非数字关键字，只搜索字符串字段
-			if group != "" {
-				query = query.Where("("+likeCondition+") AND "+commonGroupCol+" = ?",
-					"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
-			} else {
-				query = query.Where(likeCondition,
-					"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
-			}
+			query = query.Where(likeCondition,
+				keywordInt, "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 		}
-	} else if group != "" {
-		query = query.Where(commonGroupCol+" = ?", group)
+	} else {
+		// 非数字关键字，只搜索字符串字段
+		if group != "" {
+			query = query.Where("("+likeCondition+") AND "+commonGroupCol+" = ?",
+				"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", group)
+		} else {
+			query = query.Where(likeCondition,
+				"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
+		}
 	}
 
 	// 获取总数
@@ -453,6 +437,65 @@ func (user *User) Insert(inviterId int) error {
 	return nil
 }
 
+// InsertWithTx inserts a new user within an existing transaction.
+// This is used for OAuth registration where user creation and binding need to be atomic.
+// Post-creation tasks (sidebar config, logs, inviter rewards) are handled after the transaction commits.
+func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
+	var err error
+	if user.Password != "" {
+		user.Password, err = common.Password2Hash(user.Password)
+		if err != nil {
+			return err
+		}
+	}
+	user.Quota = common.QuotaForNewUser
+	user.AffCode = common.GetRandomString(4)
+
+	// 初始化用户设置
+	if user.Setting == "" {
+		defaultSetting := dto.UserSetting{}
+		user.SetSetting(defaultSetting)
+	}
+
+	result := tx.Create(user)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	return nil
+}
+
+// FinalizeOAuthUserCreation performs post-transaction tasks for OAuth user creation.
+// This should be called after the transaction commits successfully.
+func (user *User) FinalizeOAuthUserCreation(inviterId int) {
+	// 用户创建成功后，根据角色初始化边栏配置
+	var createdUser User
+	if err := DB.Where("id = ?", user.Id).First(&createdUser).Error; err == nil {
+		defaultSidebarConfig := generateDefaultSidebarConfigForRole(createdUser.Role)
+		if defaultSidebarConfig != "" {
+			currentSetting := createdUser.GetSetting()
+			currentSetting.SidebarModules = defaultSidebarConfig
+			createdUser.SetSetting(currentSetting)
+			createdUser.Update(false)
+			common.SysLog(fmt.Sprintf("为新用户 %s (角色: %d) 初始化边栏配置", createdUser.Username, createdUser.Role))
+		}
+	}
+
+	if common.QuotaForNewUser > 0 {
+		RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("新用户注册赠送 %s", logger.LogQuota(common.QuotaForNewUser)))
+	}
+	if inviterId != 0 {
+		if common.QuotaForInvitee > 0 {
+			_ = IncreaseUserQuota(user.Id, common.QuotaForInvitee, true)
+			RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("使用邀请码赠送 %s", logger.LogQuota(common.QuotaForInvitee)))
+		}
+		if common.QuotaForInviter > 0 {
+			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(common.QuotaForInviter)))
+			_ = inviteUser(inviterId)
+		}
+	}
+}
+
 func (user *User) Update(updatePassword bool) error {
 	var err error
 	if updatePassword {
@@ -498,6 +541,37 @@ func (user *User) Edit(updatePassword bool) error {
 	}
 
 	// Update cache
+	return updateUserCache(*user)
+}
+
+func (user *User) ClearBinding(bindingType string) error {
+	if user.Id == 0 {
+		return errors.New("user id is empty")
+	}
+
+	bindingColumnMap := map[string]string{
+		"email":    "email",
+		"github":   "github_id",
+		"discord":  "discord_id",
+		"oidc":     "oidc_id",
+		"wechat":   "wechat_id",
+		"telegram": "telegram_id",
+		"linuxdo":  "linux_do_id",
+	}
+
+	column, ok := bindingColumnMap[bindingType]
+	if !ok {
+		return errors.New("invalid binding type")
+	}
+
+	if err := DB.Model(&User{}).Where("id = ?", user.Id).Update(column, "").Error; err != nil {
+		return err
+	}
+
+	if err := DB.Where("id = ?", user.Id).First(user).Error; err != nil {
+		return err
+	}
+
 	return updateUserCache(*user)
 }
 
@@ -562,6 +636,14 @@ func (user *User) FillUserByGitHubId() error {
 	}
 	DB.Where(User{GitHubId: user.GitHubId}).First(user)
 	return nil
+}
+
+// UpdateGitHubId updates the user's GitHub ID (used for migration from login to numeric ID)
+func (user *User) UpdateGitHubId(newGitHubId string) error {
+	if user.Id == 0 {
+		return errors.New("user id is empty")
+	}
+	return DB.Model(user).Update("github_id", newGitHubId).Error
 }
 
 func (user *User) FillUserByDiscordId() error {
@@ -683,33 +765,8 @@ func ValidateAccessToken(token string) (user *User) {
 		return nil
 	}
 	token = strings.Replace(token, "Bearer ", "", 1)
-
-	// Try Redis cache first
-	// Note: cached user status may be stale for up to SyncFrequency seconds (default 60s).
-	// If a user is banned, they may retain access until the cache TTL expires.
-	// This is an acceptable trade-off for reducing DB load on high-frequency token validation.
-	if common.RedisEnabled {
-		cacheKey := fmt.Sprintf("access_token:%s", hex.EncodeToString(common.Sha256Raw([]byte(token))))
-		user = &User{}
-		if err := common.RedisHGetObj(cacheKey, user); err == nil && user.Id > 0 {
-			return user
-		}
-	}
-
-	// Fallback to DB
 	user = &User{}
 	if DB.Where("access_token = ?", token).First(user).RowsAffected == 1 {
-		// Cache the result asynchronously
-		if common.RedisEnabled {
-			cacheKey := fmt.Sprintf("access_token:%s", hex.EncodeToString(common.Sha256Raw([]byte(token))))
-			cachedUser := *user // copy struct to avoid mutating the original
-			cachedUser.Password = "" // never cache password hash in Redis
-			gopool.Go(func() {
-				if err := common.RedisHSetObj(cacheKey, &cachedUser, time.Duration(common.SyncFrequency)*time.Second); err != nil {
-					common.SysLog("failed to cache access token: " + err.Error())
-				}
-			})
-		}
 		return user
 	}
 	return nil
@@ -802,9 +859,16 @@ func GetUserSetting(id int, fromDB bool) (settingMap dto.UserSetting, err error)
 		// Don't return error - fall through to DB
 	}
 	fromDB = true
-	err = DB.Model(&User{}).Where("id = ?", id).Select("setting").Find(&setting).Error
+	// can be nil setting
+	var safeSetting sql.NullString
+	err = DB.Model(&User{}).Where("id = ?", id).Select("setting").Find(&safeSetting).Error
 	if err != nil {
 		return settingMap, err
+	}
+	if safeSetting.Valid {
+		setting = safeSetting.String
+	} else {
+		setting = ""
 	}
 	userBase := &UserBase{
 		Setting: setting,
@@ -977,174 +1041,4 @@ func RootUserExists() bool {
 		return false
 	}
 	return true
-}
-
-type LeaderboardUser struct {
-	Id              int    `json:"id" gorm:"column:id"`
-	DisplayName     string `json:"display_name"`
-	LinuxDOUsername string `json:"linux_do_username"`
-	LinuxDOAvatar   string `json:"linux_do_avatar"`
-	LinuxDOLevel    int    `json:"linux_do_level"`
-	RequestCount    int    `json:"request_count"`
-	UsedQuota       int    `json:"used_quota"`
-}
-
-func isLeaderboardHiddenUser(username string) bool {
-	for _, u := range common.LeaderboardHiddenUsers {
-		if u == username {
-			return true
-		}
-	}
-	return false
-}
-
-func GetUsageLeaderboard(limit int) ([]LeaderboardUser, error) {
-	var users []LeaderboardUser
-	query := DB.Model(&User{}).
-		Select("id, display_name, linux_do_username, linux_do_avatar, linux_do_level, request_count, used_quota").
-		Where("status = ?", common.UserStatusEnabled).
-		Where("role != ?", common.RoleRootUser).
-		Where("used_quota > 0")
-	if len(common.LeaderboardHiddenUsers) > 0 {
-		query = query.Where("username NOT IN ?", common.LeaderboardHiddenUsers)
-	}
-	err := query.Order("used_quota DESC").
-		Limit(limit).
-		Find(&users).Error
-	return users, err
-}
-
-func GetUserRank(userId int) (int, *LeaderboardUser, error) {
-	var user User
-	err := DB.Select("id, username, display_name, linux_do_username, linux_do_avatar, linux_do_level, request_count, used_quota").
-		Where("id = ?", userId).
-		First(&user).Error
-	if err != nil {
-		return 0, nil, err
-	}
-
-	if user.UsedQuota <= 0 || isLeaderboardHiddenUser(user.Username) {
-		return 0, nil, nil
-	}
-
-	query := DB.Model(&User{}).
-		Where("status = ?", common.UserStatusEnabled).
-		Where("role != ?", common.RoleRootUser).
-		Where("used_quota > ?", user.UsedQuota)
-	if len(common.LeaderboardHiddenUsers) > 0 {
-		query = query.Where("username NOT IN ?", common.LeaderboardHiddenUsers)
-	}
-	var rank int64
-	err = query.Count(&rank).Error
-	if err != nil {
-		return 0, nil, err
-	}
-
-	return int(rank + 1), &LeaderboardUser{
-		DisplayName:     user.DisplayName,
-		LinuxDOUsername: user.LinuxDOUsername,
-		LinuxDOAvatar:   user.LinuxDOAvatar,
-		LinuxDOLevel:    user.LinuxDOLevel,
-		RequestCount:    user.RequestCount,
-		UsedQuota:       user.UsedQuota,
-	}, nil
-}
-
-type BalanceLeaderboardUser struct {
-	Id              int    `json:"id" gorm:"column:id"`
-	DisplayName     string `json:"display_name"`
-	LinuxDOUsername string `json:"linux_do_username"`
-	LinuxDOAvatar   string `json:"linux_do_avatar"`
-	LinuxDOLevel    int    `json:"linux_do_level"`
-	Quota           int    `json:"quota"`
-}
-
-func GetBalanceLeaderboard(limit int) ([]BalanceLeaderboardUser, error) {
-	var users []BalanceLeaderboardUser
-	query := DB.Model(&User{}).
-		Select("id, display_name, linux_do_username, linux_do_avatar, linux_do_level, quota").
-		Where("status = ?", common.UserStatusEnabled).
-		Where("role != ?", common.RoleRootUser).
-		Where("quota > 0")
-	if len(common.LeaderboardHiddenUsers) > 0 {
-		query = query.Where("username NOT IN ?", common.LeaderboardHiddenUsers)
-	}
-	err := query.Order("quota DESC").
-		Limit(limit).
-		Find(&users).Error
-	return users, err
-}
-
-func GetUserBalanceRank(userId int) (int, *BalanceLeaderboardUser, error) {
-	var user User
-	err := DB.Select("id, username, display_name, linux_do_username, linux_do_avatar, linux_do_level, quota").
-		Where("id = ?", userId).
-		First(&user).Error
-	if err != nil {
-		return 0, nil, err
-	}
-
-	if user.Quota <= 0 || isLeaderboardHiddenUser(user.Username) {
-		return 0, nil, nil
-	}
-
-	query := DB.Model(&User{}).
-		Where("status = ?", common.UserStatusEnabled).
-		Where("role != ?", common.RoleRootUser).
-		Where("quota > ?", user.Quota)
-	if len(common.LeaderboardHiddenUsers) > 0 {
-		query = query.Where("username NOT IN ?", common.LeaderboardHiddenUsers)
-	}
-	var rank int64
-	err = query.Count(&rank).Error
-	if err != nil {
-		return 0, nil, err
-	}
-
-	return int(rank + 1), &BalanceLeaderboardUser{
-		DisplayName:     user.DisplayName,
-		LinuxDOUsername: user.LinuxDOUsername,
-		LinuxDOAvatar:   user.LinuxDOAvatar,
-		LinuxDOLevel:    user.LinuxDOLevel,
-		Quota:           user.Quota,
-	}, nil
-}
-
-type BannedUser struct {
-	Id              int    `json:"id"`
-	DisplayName     string `json:"display_name"`
-	LinuxDOUsername string `json:"linux_do_username"`
-	LinuxDOAvatar   string `json:"linux_do_avatar"`
-	BanReason       string `json:"ban_reason"`
-	HasPendingAppeal bool  `json:"has_pending_appeal"`
-}
-
-func GetBannedUsers() ([]BannedUser, error) {
-	var users []struct {
-		Id              int    `json:"id"`
-		DisplayName     string `json:"display_name"`
-		LinuxDOUsername string `json:"linux_do_username"`
-		LinuxDOAvatar   string `json:"linux_do_avatar"`
-		Remark          string `json:"remark"`
-	}
-	err := DB.Model(&User{}).
-		Select("id, display_name, linux_do_username, linux_do_avatar, remark").
-		Where("status = ?", common.UserStatusDisabled).
-		Find(&users).Error
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]BannedUser, len(users))
-	for i, u := range users {
-		result[i] = BannedUser{
-			Id:              u.Id,
-			DisplayName:     u.DisplayName,
-			LinuxDOUsername: u.LinuxDOUsername,
-			LinuxDOAvatar:   u.LinuxDOAvatar,
-			BanReason:       u.Remark,
-			HasPendingAppeal: HasPendingAppeal(u.Id),
-		}
-	}
-	return result, nil
 }

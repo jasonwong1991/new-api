@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/performance_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 )
@@ -43,7 +44,6 @@ func InitOptionMap() {
 	common.OptionMap["WeChatAuthEnabled"] = strconv.FormatBool(common.WeChatAuthEnabled)
 	common.OptionMap["TurnstileCheckEnabled"] = strconv.FormatBool(common.TurnstileCheckEnabled)
 	common.OptionMap["RegisterEnabled"] = strconv.FormatBool(common.RegisterEnabled)
-	common.OptionMap["InvitationCodeRequired"] = strconv.FormatBool(common.InvitationCodeRequired)
 	common.OptionMap["AutomaticDisableChannelEnabled"] = strconv.FormatBool(common.AutomaticDisableChannelEnabled)
 	common.OptionMap["AutomaticEnableChannelEnabled"] = strconv.FormatBool(common.AutomaticEnableChannelEnabled)
 	common.OptionMap["LogConsumeEnabled"] = strconv.FormatBool(common.LogConsumeEnabled)
@@ -56,7 +56,6 @@ func InitOptionMap() {
 	common.OptionMap["EmailDomainRestrictionEnabled"] = strconv.FormatBool(common.EmailDomainRestrictionEnabled)
 	common.OptionMap["EmailAliasRestrictionEnabled"] = strconv.FormatBool(common.EmailAliasRestrictionEnabled)
 	common.OptionMap["EmailDomainWhitelist"] = strings.Join(common.EmailDomainWhitelist, ",")
-	common.OptionMap["LeaderboardHiddenUsers"] = strings.Join(common.LeaderboardHiddenUsers, ",")
 	common.OptionMap["SMTPServer"] = ""
 	common.OptionMap["SMTPFrom"] = ""
 	common.OptionMap["SMTPPort"] = strconv.Itoa(common.SMTPPort)
@@ -90,6 +89,22 @@ func InitOptionMap() {
 	common.OptionMap["CreemProducts"] = setting.CreemProducts
 	common.OptionMap["CreemTestMode"] = strconv.FormatBool(setting.CreemTestMode)
 	common.OptionMap["CreemWebhookSecret"] = setting.CreemWebhookSecret
+	common.OptionMap["WaffoEnabled"] = strconv.FormatBool(setting.WaffoEnabled)
+	common.OptionMap["WaffoApiKey"] = setting.WaffoApiKey
+	common.OptionMap["WaffoPrivateKey"] = setting.WaffoPrivateKey
+	common.OptionMap["WaffoPublicCert"] = setting.WaffoPublicCert
+	common.OptionMap["WaffoSandboxPublicCert"] = setting.WaffoSandboxPublicCert
+	common.OptionMap["WaffoSandboxApiKey"] = setting.WaffoSandboxApiKey
+	common.OptionMap["WaffoSandboxPrivateKey"] = setting.WaffoSandboxPrivateKey
+	common.OptionMap["WaffoSandbox"] = strconv.FormatBool(setting.WaffoSandbox)
+	common.OptionMap["WaffoMerchantId"] = setting.WaffoMerchantId
+	common.OptionMap["WaffoNotifyUrl"] = setting.WaffoNotifyUrl
+	common.OptionMap["WaffoReturnUrl"] = setting.WaffoReturnUrl
+	common.OptionMap["WaffoSubscriptionReturnUrl"] = setting.WaffoSubscriptionReturnUrl
+	common.OptionMap["WaffoCurrency"] = setting.WaffoCurrency
+	common.OptionMap["WaffoUnitPrice"] = strconv.FormatFloat(setting.WaffoUnitPrice, 'f', -1, 64)
+	common.OptionMap["WaffoMinTopUp"] = strconv.Itoa(setting.WaffoMinTopUp)
+	common.OptionMap["WaffoPayMethods"] = setting.WaffoPayMethods2JsonString()
 	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
 	common.OptionMap["Chats"] = setting.Chats2JsonString()
 	common.OptionMap["AutoGroups"] = setting.AutoGroups2JsonString()
@@ -113,10 +128,10 @@ func InitOptionMap() {
 	common.OptionMap["ModelRequestRateLimitDurationMinutes"] = strconv.Itoa(setting.ModelRequestRateLimitDurationMinutes)
 	common.OptionMap["ModelRequestRateLimitSuccessCount"] = strconv.Itoa(setting.ModelRequestRateLimitSuccessCount)
 	common.OptionMap["ModelRequestRateLimitGroup"] = setting.ModelRequestRateLimitGroup2JSONString()
-	common.OptionMap["RateLimitExemptWhitelist"] = setting.RateLimitExemptWhitelist2JSONString()
 	common.OptionMap["ModelRatio"] = ratio_setting.ModelRatio2JSONString()
 	common.OptionMap["ModelPrice"] = ratio_setting.ModelPrice2JSONString()
 	common.OptionMap["CacheRatio"] = ratio_setting.CacheRatio2JSONString()
+	common.OptionMap["CreateCacheRatio"] = ratio_setting.CreateCacheRatio2JSONString()
 	common.OptionMap["GroupRatio"] = ratio_setting.GroupRatio2JSONString()
 	common.OptionMap["GroupGroupRatio"] = ratio_setting.GroupGroupRatio2JSONString()
 	common.OptionMap["UserUsableGroups"] = setting.UserUsableGroups2JSONString()
@@ -145,9 +160,9 @@ func InitOptionMap() {
 	common.OptionMap["StopOnSensitiveEnabled"] = strconv.FormatBool(setting.StopOnSensitiveEnabled)
 	common.OptionMap["SensitiveWords"] = setting.SensitiveWordsToString()
 	common.OptionMap["StreamCacheQueueLength"] = strconv.Itoa(setting.StreamCacheQueueLength)
-	common.OptionMap["MinMaxTokensCheckEnabled"] = strconv.FormatBool(setting.MinMaxTokensCheckEnabled)
-	common.OptionMap["MinMaxTokensValue"] = strconv.Itoa(setting.MinMaxTokensValue)
 	common.OptionMap["AutomaticDisableKeywords"] = operation_setting.AutomaticDisableKeywordsToString()
+	common.OptionMap["AutomaticDisableStatusCodes"] = operation_setting.AutomaticDisableStatusCodesToString()
+	common.OptionMap["AutomaticRetryStatusCodes"] = operation_setting.AutomaticRetryStatusCodesToString()
 	common.OptionMap["ExposeRatioEnabled"] = strconv.FormatBool(ratio_setting.IsExposeRatioEnabled())
 
 	// 自动添加所有注册的模型配置
@@ -218,7 +233,7 @@ func updateOptionMap(key string, value string) (err error) {
 			common.ImageDownloadPermission = intValue
 		}
 	}
-	if strings.HasSuffix(key, "Enabled") || key == "DefaultCollapseSidebar" || key == "DefaultUseAutoGroup" || key == "InvitationCodeRequired" {
+	if strings.HasSuffix(key, "Enabled") || key == "DefaultCollapseSidebar" || key == "DefaultUseAutoGroup" {
 		boolValue := value == "true"
 		switch key {
 		case "PasswordRegisterEnabled":
@@ -239,8 +254,6 @@ func updateOptionMap(key string, value string) (err error) {
 			common.TurnstileCheckEnabled = boolValue
 		case "RegisterEnabled":
 			common.RegisterEnabled = boolValue
-		case "InvitationCodeRequired":
-			common.InvitationCodeRequired = boolValue
 		case "EmailDomainRestrictionEnabled":
 			common.EmailDomainRestrictionEnabled = boolValue
 		case "EmailAliasRestrictionEnabled":
@@ -301,19 +314,11 @@ func updateOptionMap(key string, value string) (err error) {
 			setting.DefaultUseAutoGroup = boolValue
 		case "ExposeRatioEnabled":
 			ratio_setting.SetExposeRatioEnabled(boolValue)
-		case "MinMaxTokensCheckEnabled":
-			setting.MinMaxTokensCheckEnabled = boolValue
 		}
 	}
 	switch key {
 	case "EmailDomainWhitelist":
 		common.EmailDomainWhitelist = strings.Split(value, ",")
-	case "LeaderboardHiddenUsers":
-		if value == "" {
-			common.LeaderboardHiddenUsers = []string{}
-		} else {
-			common.LeaderboardHiddenUsers = strings.Split(value, ",")
-		}
 	case "SMTPServer":
 		common.SMTPServer = value
 	case "SMTPPort":
@@ -369,6 +374,36 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.CreemTestMode = value == "true"
 	case "CreemWebhookSecret":
 		setting.CreemWebhookSecret = value
+	case "WaffoEnabled":
+		setting.WaffoEnabled = value == "true"
+	case "WaffoApiKey":
+		setting.WaffoApiKey = value
+	case "WaffoPrivateKey":
+		setting.WaffoPrivateKey = value
+	case "WaffoPublicCert":
+		setting.WaffoPublicCert = value
+	case "WaffoSandboxPublicCert":
+		setting.WaffoSandboxPublicCert = value
+	case "WaffoSandboxApiKey":
+		setting.WaffoSandboxApiKey = value
+	case "WaffoSandboxPrivateKey":
+		setting.WaffoSandboxPrivateKey = value
+	case "WaffoSandbox":
+		setting.WaffoSandbox = value == "true"
+	case "WaffoMerchantId":
+		setting.WaffoMerchantId = value
+	case "WaffoNotifyUrl":
+		setting.WaffoNotifyUrl = value
+	case "WaffoReturnUrl":
+		setting.WaffoReturnUrl = value
+	case "WaffoSubscriptionReturnUrl":
+		setting.WaffoSubscriptionReturnUrl = value
+	case "WaffoCurrency":
+		setting.WaffoCurrency = value
+	case "WaffoUnitPrice":
+		setting.WaffoUnitPrice, _ = strconv.ParseFloat(value, 64)
+	case "WaffoMinTopUp":
+		setting.WaffoMinTopUp, _ = strconv.Atoi(value)
 	case "TopupGroupRatio":
 		err = common.UpdateTopupGroupRatioByJSONString(value)
 	case "GitHubClientId":
@@ -419,8 +454,6 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.ModelRequestRateLimitSuccessCount, _ = strconv.Atoi(value)
 	case "ModelRequestRateLimitGroup":
 		err = setting.UpdateModelRequestRateLimitGroupByJSONString(value)
-	case "RateLimitExemptWhitelist":
-		err = setting.UpdateRateLimitExemptWhitelistByJSONString(value)
 	case "RetryTimes":
 		common.RetryTimes, _ = strconv.Atoi(value)
 	case "DataExportInterval":
@@ -441,6 +474,8 @@ func updateOptionMap(key string, value string) (err error) {
 		err = ratio_setting.UpdateModelPriceByJSONString(value)
 	case "CacheRatio":
 		err = ratio_setting.UpdateCacheRatioByJSONString(value)
+	case "CreateCacheRatio":
+		err = ratio_setting.UpdateCreateCacheRatioByJSONString(value)
 	case "ImageRatio":
 		err = ratio_setting.UpdateImageRatioByJSONString(value)
 	case "AudioRatio":
@@ -461,12 +496,18 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.SensitiveWordsFromString(value)
 	case "AutomaticDisableKeywords":
 		operation_setting.AutomaticDisableKeywordsFromString(value)
+	case "AutomaticDisableStatusCodes":
+		err = operation_setting.AutomaticDisableStatusCodesFromString(value)
+	case "AutomaticRetryStatusCodes":
+		err = operation_setting.AutomaticRetryStatusCodesFromString(value)
 	case "StreamCacheQueueLength":
 		setting.StreamCacheQueueLength, _ = strconv.Atoi(value)
-	case "MinMaxTokensValue":
-		setting.MinMaxTokensValue, _ = strconv.Atoi(value)
 	case "PayMethods":
 		err = operation_setting.UpdatePayMethodsByJsonString(value)
+	case "WaffoPayMethods":
+		// WaffoPayMethods is read directly from OptionMap via setting.GetWaffoPayMethods().
+		// The value is already stored in OptionMap at the top of this function (line: common.OptionMap[key] = value).
+		// No additional in-memory variable to update.
 	}
 	return err
 }
@@ -492,6 +533,12 @@ func handleConfigUpdate(key, value string) bool {
 		configKey: value,
 	}
 	config.UpdateConfigFromMap(cfg, configMap)
+
+	// 特定配置的后处理
+	if configName == "performance_setting" {
+		// 同步磁盘缓存配置到 common 包
+		performance_setting.UpdateAndSync()
+	}
 
 	return true // 已处理
 }

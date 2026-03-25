@@ -4,14 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"hash/fnv"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
 
 	goahocorasick "github.com/anknown/ahocorasick"
-
-	"github.com/QuantumNous/new-api/common"
 )
 
 func SundaySearch(text string, pattern string) bool {
@@ -73,11 +70,7 @@ func InitAc(dict []string) *goahocorasick.Machine {
 	return m
 }
 
-var (
-	acCache           sync.Map
-	regexCache        sync.Map
-	invalidRegexCache sync.Map
-)
+var acCache sync.Map
 
 func acKey(dict []string) string {
 	if len(dict) == 0 {
@@ -154,66 +147,6 @@ func AcSearch(findText string, dict []string, stopImmediately bool) (bool, []str
 			words = append(words, string(hit.Word))
 		}
 		return true, words
-	}
-	return false, nil
-}
-
-const regexPrefix = "regex:"
-
-func getOrCompileRegex(pattern string) *regexp.Regexp {
-	pattern = strings.TrimSpace(pattern)
-	if pattern == "" {
-		return nil
-	}
-	if v, ok := regexCache.Load(pattern); ok {
-		if re, ok2 := v.(*regexp.Regexp); ok2 {
-			return re
-		}
-	}
-	if _, seen := invalidRegexCache.Load(pattern); seen {
-		return nil
-	}
-
-	var regexPattern string
-	if strings.HasPrefix(pattern, regexPrefix) {
-		regexPattern = "(?im)" + strings.TrimPrefix(pattern, regexPrefix)
-	} else {
-		regexPattern = "(?i)" + regexp.QuoteMeta(pattern)
-	}
-
-	compiled, err := regexp.Compile(regexPattern)
-	if err != nil {
-		invalidRegexCache.Store(pattern, struct{}{})
-		common.SysLog(fmt.Sprintf("invalid sensitive regex pattern %q: %v", pattern, err))
-		return nil
-	}
-	if actual, loaded := regexCache.LoadOrStore(pattern, compiled); loaded {
-		if cached, ok := actual.(*regexp.Regexp); ok {
-			return cached
-		}
-	}
-	return compiled
-}
-
-func RegexSearch(text string, patterns []string, stopImmediately bool) (bool, []string) {
-	if len(patterns) == 0 || len(text) == 0 {
-		return false, nil
-	}
-	var matches []string
-	for _, pattern := range patterns {
-		re := getOrCompileRegex(pattern)
-		if re == nil {
-			continue
-		}
-		if re.MatchString(text) {
-			matches = append(matches, pattern)
-			if stopImmediately {
-				return true, matches
-			}
-		}
-	}
-	if len(matches) > 0 {
-		return true, matches
 	}
 	return false, nil
 }
