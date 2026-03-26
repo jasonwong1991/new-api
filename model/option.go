@@ -164,6 +164,7 @@ func InitOptionMap() {
 	common.OptionMap["AutomaticDisableStatusCodes"] = operation_setting.AutomaticDisableStatusCodesToString()
 	common.OptionMap["AutomaticRetryStatusCodes"] = operation_setting.AutomaticRetryStatusCodesToString()
 	common.OptionMap["ExposeRatioEnabled"] = strconv.FormatBool(ratio_setting.IsExposeRatioEnabled())
+	common.OptionMap["LeaderboardHiddenUsers"] = strings.Join(common.LeaderboardHiddenUsers, ",")
 
 	// 自动添加所有注册的模型配置
 	modelConfigs := config.GlobalConfig.ExportAllConfigs()
@@ -317,6 +318,12 @@ func updateOptionMap(key string, value string) (err error) {
 		}
 	}
 	switch key {
+	case "LeaderboardHiddenUsers":
+		if value == "" {
+			common.LeaderboardHiddenUsers = []string{}
+		} else {
+			common.LeaderboardHiddenUsers = strings.Split(value, ",")
+		}
 	case "EmailDomainWhitelist":
 		common.EmailDomainWhitelist = strings.Split(value, ",")
 	case "SMTPServer":
