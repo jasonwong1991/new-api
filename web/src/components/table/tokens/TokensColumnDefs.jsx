@@ -112,29 +112,29 @@ const renderGroupColumn = (text, t) => {
 const renderTokenKey = (text, record, showKeys, setShowKeys, copyText, t) => {
   const maskedKey =
     'sk-' + record.key.slice(0, 4) + '**********' + record.key.slice(-4);
-  const displayKey = 'sk-' + record.key;
-  const revealed = !!showKeys[record.id];
+  const revealedKey = showKeys[record.id];
+  const displayKey = revealedKey || maskedKey;
 
   return (
     <div className='w-[200px]'>
       <Input
         readOnly
-        value={revealed ? displayKey : maskedKey}
+        value={displayKey}
         size='small'
         suffix={
           <div className='flex items-center'>
-            <Button
-              theme='borderless'
-              size='small'
-              type='tertiary'
-              icon={revealed ? <IconEyeClosed /> : <IconEyeOpened />}
-              aria-label='toggle token visibility'
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowKeys((prev) => ({ ...prev, [record.id]: !revealed }));
-              }}
+            <ToggleKeyButton
+              record={record}
+              revealed={!!revealedKey}
+              setShowKeys={setShowKeys}
+              t={t}
             />
-            <CopyKeyButton record={record} copyText={copyText} t={t} />
+            <CopyKeyButton
+              record={record}
+              revealedKey={revealedKey}
+              copyText={copyText}
+              t={t}
+            />
           </div>
         }
       />
@@ -142,12 +142,65 @@ const renderTokenKey = (text, record, showKeys, setShowKeys, copyText, t) => {
   );
 };
 
+// Toggle key visibility button - fetches real key from API
+const ToggleKeyButton = ({ record, revealed, setShowKeys, t }) => {
+  const [loading, setLoading] = React.useState(false);
+
+  const handleToggle = async (e) => {
+    e.stopPropagation();
+    if (revealed) {
+      // Hide: just remove from state
+      setShowKeys((prev) => {
+        const next = { ...prev };
+        delete next[record.id];
+        return next;
+      });
+      return;
+    }
+    // Reveal: fetch full key from API
+    setLoading(true);
+    try {
+      const res = await API.get(`/api/token/${record.id}/key`, {
+        skipErrorHandler: true,
+      });
+      const { success, message, data } = res.data;
+      if (success) {
+        setShowKeys((prev) => ({ ...prev, [record.id]: data.key }));
+      } else {
+        showError(t(message || '获取密钥失败'));
+      }
+    } catch (err) {
+      showError(t('获取密钥失败'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      theme='borderless'
+      size='small'
+      type='tertiary'
+      loading={loading}
+      icon={revealed ? <IconEyeClosed /> : <IconEyeOpened />}
+      aria-label='toggle token visibility'
+      onClick={handleToggle}
+    />
+  );
+};
+
 // Separate component for copy button to support loading state via hooks
-const CopyKeyButton = ({ record, copyText, t }) => {
+const CopyKeyButton = ({ record, revealedKey, copyText, t }) => {
   const [loading, setLoading] = React.useState(false);
 
   const handleCopy = async (e) => {
     e.stopPropagation();
+    // If key is already revealed, copy directly
+    if (revealedKey) {
+      await copyText(revealedKey);
+      return;
+    }
+    // Otherwise fetch from API
     setLoading(true);
     try {
       const res = await API.get(`/api/token/${record.id}/key`, {
@@ -160,12 +213,7 @@ const CopyKeyButton = ({ record, copyText, t }) => {
         showError(t(message || '获取密钥失败'));
       }
     } catch (err) {
-      const status = err?.response?.status;
-      if (status === 403) {
-        showError(t('需要安全验证后才能复制密钥'));
-      } else {
-        showError(t('获取密钥失败'));
-      }
+      showError(t('获取密钥失败'));
     } finally {
       setLoading(false);
     }
