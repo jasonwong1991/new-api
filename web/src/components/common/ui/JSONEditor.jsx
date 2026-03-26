@@ -60,7 +60,6 @@ const JSONEditor = ({
   editorType = 'keyValue',
   rules = [],
   formApi = null,
-  renderStringValueSuffix,
   ...props
 }) => {
   const { t } = useTranslation();
@@ -336,7 +335,7 @@ const JSONEditor = ({
   ]);
 
   // 渲染值输入控件（支持嵌套）
-  const renderValueInput = (pairId, pairKey, value) => {
+  const renderValueInput = (pairId, value) => {
     const valueType = typeof value;
 
     if (valueType === 'boolean') {
@@ -388,7 +387,6 @@ const JSONEditor = ({
       <Input
         placeholder={t('参数值')}
         value={String(value)}
-        suffix={renderStringValueSuffix?.({ pairId, pairKey, value })}
         onChange={(newValue) => {
           let convertedValue = newValue;
           if (newValue === 'true') convertedValue = true;
@@ -472,9 +470,7 @@ const JSONEditor = ({
                   )}
                 </div>
               </Col>
-              <Col span={12}>
-                {renderValueInput(pair.id, pair.key, pair.value)}
-              </Col>
+              <Col span={12}>{renderValueInput(pair.id, pair.value)}</Col>
               <Col span={2}>
                 <Button
                   icon={<IconDelete />}

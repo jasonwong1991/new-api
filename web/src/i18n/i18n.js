@@ -23,30 +23,25 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 
 import enTranslation from './locales/en.json';
 import frTranslation from './locales/fr.json';
-import zhCNTranslation from './locales/zh-CN.json';
-import zhTWTranslation from './locales/zh-TW.json';
+import zhTranslation from './locales/zh.json';
 import ruTranslation from './locales/ru.json';
 import jaTranslation from './locales/ja.json';
 import viTranslation from './locales/vi.json';
-import { supportedLanguages } from './language';
 
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    load: 'currentOnly',
-    supportedLngs: supportedLanguages,
+    load: 'languageOnly',
     resources: {
       en: enTranslation,
-      'zh-CN': zhCNTranslation,
-      'zh-TW': zhTWTranslation,
+      zh: zhTranslation,
       fr: frTranslation,
       ru: ruTranslation,
       ja: jaTranslation,
       vi: viTranslation,
     },
-    fallbackLng: 'zh-CN',
-    nsSeparator: false,
+    fallbackLng: 'zh',
     interpolation: {
       escapeValue: false,
     },

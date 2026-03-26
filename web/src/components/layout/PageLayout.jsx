@@ -37,11 +37,10 @@ import {
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { useLocation } from 'react-router-dom';
-import { normalizeLanguage } from '../../i18n/language';
 const { Sider, Content, Header } = Layout;
 
 const PageLayout = () => {
-  const [userState, userDispatch] = useContext(UserContext);
+  const [, userDispatch] = useContext(UserContext);
   const [, statusDispatch] = useContext(StatusContext);
   const isMobile = useIsMobile();
   const [collapsed, , setCollapsed] = useSidebarCollapsed();
@@ -114,39 +113,16 @@ const PageLayout = () => {
         linkElement.href = logo;
       }
     }
-  }, []);
-
-  useEffect(() => {
-    let preferredLang;
-
-    if (userState?.user?.setting) {
-      try {
-        const settings = JSON.parse(userState.user.setting);
-        preferredLang = normalizeLanguage(settings.language);
-      } catch (e) {
-        // Ignore parse errors
-      }
+    const savedLang = localStorage.getItem('i18nextLng');
+    if (savedLang) {
+      i18n.changeLanguage(savedLang);
     }
-
-    if (!preferredLang) {
-      const savedLang = localStorage.getItem('i18nextLng');
-      if (savedLang) {
-        preferredLang = normalizeLanguage(savedLang);
-      }
-    }
-
-    if (preferredLang) {
-      localStorage.setItem('i18nextLng', preferredLang);
-      if (preferredLang !== i18n.language) {
-        i18n.changeLanguage(preferredLang);
-      }
-    }
-  }, [i18n, userState?.user?.setting]);
+  }, [i18n]);
 
   return (
     <Layout
-      className='app-layout'
       style={{
+        height: '100vh',
         display: 'flex',
         flexDirection: 'column',
         overflow: isMobile ? 'visible' : 'hidden',
@@ -177,7 +153,6 @@ const PageLayout = () => {
       >
         {showSider && (
           <Sider
-            className='app-sider'
             style={{
               position: 'fixed',
               left: 0,
@@ -185,6 +160,7 @@ const PageLayout = () => {
               zIndex: 99,
               border: 'none',
               paddingRight: '0',
+              height: 'calc(100vh - 64px)',
               width: 'var(--sidebar-current-width)',
             }}
           >

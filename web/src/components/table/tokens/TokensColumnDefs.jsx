@@ -88,7 +88,7 @@ const renderStatus = (text, record, t) => {
 };
 
 // Render group column
-const renderGroupColumn = (text, record, t) => {
+const renderGroupColumn = (text, t) => {
   if (text === 'auto') {
     return (
       <Tooltip
@@ -98,8 +98,8 @@ const renderGroupColumn = (text, record, t) => {
         position='top'
       >
         <Tag color='white' shape='circle'>
-          {t('智能熔断')}
-          {record && record.cross_group_retry ? `(${t('跨分组')})` : ''}
+          {' '}
+          {t('智能熔断')}{' '}
         </Tag>
       </Tooltip>
     );
@@ -108,28 +108,17 @@ const renderGroupColumn = (text, record, t) => {
 };
 
 // Render token key column with show/hide and copy functionality
-const renderTokenKey = (
-  text,
-  record,
-  showKeys,
-  resolvedTokenKeys,
-  loadingTokenKeys,
-  toggleTokenVisibility,
-  copyTokenKey,
-) => {
+const renderTokenKey = (text, record, showKeys, setShowKeys, copyText) => {
+  const fullKey = 'sk-' + record.key;
+  const maskedKey =
+    'sk-' + record.key.slice(0, 4) + '**********' + record.key.slice(-4);
   const revealed = !!showKeys[record.id];
-  const loading = !!loadingTokenKeys[record.id];
-  const keyValue =
-    revealed && resolvedTokenKeys[record.id]
-      ? resolvedTokenKeys[record.id]
-      : record.key || '';
-  const displayedKey = keyValue ? `sk-${keyValue}` : '';
 
   return (
     <div className='w-[200px]'>
       <Input
         readOnly
-        value={displayedKey}
+        value={revealed ? fullKey : maskedKey}
         size='small'
         suffix={
           <div className='flex items-center'>
@@ -138,11 +127,10 @@ const renderTokenKey = (
               size='small'
               type='tertiary'
               icon={revealed ? <IconEyeClosed /> : <IconEyeOpened />}
-              loading={loading}
               aria-label='toggle token visibility'
-              onClick={async (e) => {
+              onClick={(e) => {
                 e.stopPropagation();
-                await toggleTokenVisibility(record);
+                setShowKeys((prev) => ({ ...prev, [record.id]: !revealed }));
               }}
             />
             <Button
@@ -150,11 +138,10 @@ const renderTokenKey = (
               size='small'
               type='tertiary'
               icon={<IconCopy />}
-              loading={loading}
               aria-label='copy token key'
               onClick={async (e) => {
                 e.stopPropagation();
-                await copyTokenKey(record);
+                await copyText(fullKey);
               }}
             />
           </div>
@@ -440,10 +427,8 @@ const renderOperations = (
 export const getTokensColumns = ({
   t,
   showKeys,
-  resolvedTokenKeys,
-  loadingTokenKeys,
-  toggleTokenVisibility,
-  copyTokenKey,
+  setShowKeys,
+  copyText,
   manageToken,
   onOpenLink,
   setEditingToken,
@@ -470,21 +455,13 @@ export const getTokensColumns = ({
       title: t('分组'),
       dataIndex: 'group',
       key: 'group',
-      render: (text, record) => renderGroupColumn(text, record, t),
+      render: (text) => renderGroupColumn(text, t),
     },
     {
       title: t('密钥'),
       key: 'token_key',
       render: (text, record) =>
-        renderTokenKey(
-          text,
-          record,
-          showKeys,
-          resolvedTokenKeys,
-          loadingTokenKeys,
-          toggleTokenVisibility,
-          copyTokenKey,
-        ),
+        renderTokenKey(text, record, showKeys, setShowKeys, copyText),
     },
     {
       title: t('可用模型'),

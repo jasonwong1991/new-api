@@ -45,6 +45,7 @@ import {
   formatDateTimeString,
 } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
+import useUnsavedChangesWarning from '../../../hooks/common/useUnsavedChangesWarning';
 
 const { Text } = Typography;
 
@@ -74,6 +75,9 @@ const SettingsAnnouncements = ({ options, refresh }) => {
   const [panelEnabled, setPanelEnabled] = useState(true);
 
   const formApiRef = useRef(null);
+
+  // 未保存更改警告
+  useUnsavedChangesWarning(hasChanges, t('您有未保存的系统公告更改，确定要离开吗？'));
 
   const typeOptions = [
     { value: 'default', label: t('默认') },

@@ -26,7 +26,6 @@ import {
   showSuccess,
   loadChannelModels,
   copy,
-  toBoolean,
 } from '../../helpers';
 import {
   CHANNEL_OPTIONS,
@@ -35,10 +34,7 @@ import {
 } from '../../constants';
 import { useIsMobile } from '../common/useIsMobile';
 import { useTableCompactMode } from '../common/useTableCompactMode';
-import { useChannelUpstreamUpdates } from './useChannelUpstreamUpdates';
-import { parseUpstreamUpdateMeta } from './upstreamUpdateUtils';
-import { Modal, Button } from '@douyinfe/semi-ui';
-import { openCodexUsageModal } from '../../components/table/channels/modals/CodexUsageModal';
+import { Modal } from '@douyinfe/semi-ui';
 
 export const useChannelsData = () => {
   const { t } = useTranslation();
@@ -89,27 +85,6 @@ export const useChannelsData = () => {
   const [isBatchTesting, setIsBatchTesting] = useState(false);
   const [modelTablePage, setModelTablePage] = useState(1);
   const [selectedEndpointType, setSelectedEndpointType] = useState('');
-  const [isStreamTest, setIsStreamTest] = useState(false);
-  const [globalPassThroughEnabled, setGlobalPassThroughEnabled] =
-    useState(false);
-
-  const fetchGlobalPassThroughEnabled = async () => {
-    try {
-      const res = await API.get('/api/option/');
-      const { success, data } = res?.data || {};
-      if (!success || !Array.isArray(data)) {
-        return;
-      }
-      const option = data.find(
-        (item) => item?.key === 'global.pass_through_request_enabled',
-      );
-      if (option) {
-        setGlobalPassThroughEnabled(toBoolean(option.value));
-      }
-    } catch (error) {
-      setGlobalPassThroughEnabled(false);
-    }
-  };
 
   // 使用 ref 来避免闭包问题，类似旧版实现
   const shouldStopBatchTestingRef = useRef(false);
@@ -165,7 +140,6 @@ export const useChannelsData = () => {
       });
     fetchGroups().then();
     loadChannelModels().then();
-    fetchGlobalPassThroughEnabled().then();
   }, []);
 
   // Column visibility management
@@ -237,9 +211,6 @@ export const useChannelsData = () => {
     let channelTags = {};
 
     for (let i = 0; i < channels.length; i++) {
-      channels[i].upstreamUpdateMeta = parseUpstreamUpdateMeta(
-        channels[i].settings,
-      );
       channels[i].key = '' + channels[i].id;
       if (!enableTagMode) {
         channelDates.push(channels[i]);
@@ -437,8 +408,6 @@ export const useChannelsData = () => {
     }
   };
 
-  const upstreamUpdates = useChannelUpstreamUpdates({ t, refresh });
-
   // Channel management
   const manageChannel = async (id, action, record, value) => {
     let data = { id };
@@ -499,7 +468,7 @@ export const useChannelsData = () => {
     }
     const { success, message } = res.data;
     if (success) {
-      showSuccess(t('操作成功完成！'));
+      showSuccess('操作成功完成！');
       let newChannels = [...channels];
       for (let i = 0; i < newChannels.length; i++) {
         if (newChannels[i].tag === tag) {
@@ -754,19 +723,6 @@ export const useChannelsData = () => {
   };
 
   const updateChannelBalance = async (record) => {
-    if (record?.type === 57) {
-      openCodexUsageModal({
-        t,
-        record,
-        onCopy: async (text) => {
-          const ok = await copy(text);
-          if (ok) showSuccess(t('已复制'));
-          else showError(t('复制失败'));
-        },
-      });
-      return;
-    }
-
     const res = await API.get(`/api/channel/update_balance/${record.id}/`);
     const { success, message, balance } = res.data;
     if (success) {
@@ -797,74 +753,8 @@ export const useChannelsData = () => {
     }
   };
 
-  const checkOllamaVersion = async (record) => {
-    try {
-      const res = await API.get(`/api/channel/ollama/version/${record.id}`);
-      const { success, message, data } = res.data;
-
-      if (success) {
-        const version = data?.version || '-';
-        const infoMessage = t('当前 Ollama 版本为 ${version}').replace(
-          '${version}',
-          version,
-        );
-
-        const handleCopyVersion = async () => {
-          if (!version || version === '-') {
-            showInfo(t('暂无可复制的版本信息'));
-            return;
-          }
-
-          const copied = await copy(version);
-          if (copied) {
-            showSuccess(t('已复制版本号'));
-          } else {
-            showError(t('复制失败，请手动复制'));
-          }
-        };
-
-        Modal.info({
-          title: t('Ollama 版本信息'),
-          content: infoMessage,
-          centered: true,
-          footer: (
-            <div className='flex justify-end gap-2'>
-              <Button type='tertiary' onClick={handleCopyVersion}>
-                {t('复制版本号')}
-              </Button>
-              <Button
-                type='primary'
-                theme='solid'
-                onClick={() => Modal.destroyAll()}
-              >
-                {t('关闭')}
-              </Button>
-            </div>
-          ),
-          hasCancel: false,
-          hasOk: false,
-          closable: true,
-          maskClosable: true,
-        });
-      } else {
-        showError(message || t('获取 Ollama 版本失败'));
-      }
-    } catch (error) {
-      const errMsg =
-        error?.response?.data?.message ||
-        error?.message ||
-        t('获取 Ollama 版本失败');
-      showError(errMsg);
-    }
-  };
-
   // Test channel - 单个模型测试，参考旧版实现
-  const testChannel = async (
-    record,
-    model,
-    endpointType = '',
-    stream = false,
-  ) => {
+  const testChannel = async (record, model, endpointType = '') => {
     const testKey = `${record.id}-${model}`;
 
     // 检查是否应该停止批量测试
@@ -879,9 +769,6 @@ export const useChannelsData = () => {
       let url = `/api/channel/test/${record.id}?model=${model}`;
       if (endpointType) {
         url += `&endpoint_type=${endpointType}`;
-      }
-      if (stream) {
-        url += `&stream=true`;
       }
       const res = await API.get(url);
 
@@ -1011,12 +898,7 @@ export const useChannelsData = () => {
         );
 
         const batchPromises = batch.map((model) =>
-          testChannel(
-            currentTestChannel,
-            model,
-            selectedEndpointType,
-            isStreamTest,
-          ),
+          testChannel(currentTestChannel, model, selectedEndpointType),
         );
         const batchResults = await Promise.allSettled(batchPromises);
         results.push(...batchResults);
@@ -1101,7 +983,6 @@ export const useChannelsData = () => {
     setSelectedModelKeys([]);
     setModelTablePage(1);
     setSelectedEndpointType('');
-    setIsStreamTest(false);
     // 可选择性保留测试结果，这里不清空以便用户查看
   };
 
@@ -1145,7 +1026,6 @@ export const useChannelsData = () => {
     enableBatchDelete,
     statusFilter,
     compactMode,
-    globalPassThroughEnabled,
 
     // UI states
     showEdit,
@@ -1192,8 +1072,6 @@ export const useChannelsData = () => {
     setModelTablePage,
     selectedEndpointType,
     setSelectedEndpointType,
-    isStreamTest,
-    setIsStreamTest,
     allSelectingRef,
 
     // Multi-key management states
@@ -1201,7 +1079,6 @@ export const useChannelsData = () => {
     setShowMultiKeyManageModal,
     currentMultiKeyChannel,
     setCurrentMultiKeyChannel,
-    ...upstreamUpdates,
 
     // Form
     formApi,
@@ -1232,7 +1109,6 @@ export const useChannelsData = () => {
     updateAllChannelsBalance,
     updateChannelBalance,
     fixChannelsAbilities,
-    checkOllamaVersion,
     testChannel,
     batchTestModels,
     handleCloseModal,

@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { lazy, Suspense, useContext, useMemo } from 'react';
-import { Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import Loading from './components/common/ui/Loading';
 import User from './pages/User';
 import { AuthRedirect, PrivateRoute, AdminRoute } from './helpers';
@@ -34,6 +34,8 @@ import PasswordResetConfirm from './components/auth/PasswordResetConfirm';
 import Channel from './pages/Channel';
 import Token from './pages/Token';
 import Redemption from './pages/Redemption';
+import Invitation from './pages/Invitation';
+import ArchivedUser from './pages/ArchivedUser';
 import TopUp from './pages/TopUp';
 import Log from './pages/Log';
 import Chat from './pages/Chat';
@@ -42,9 +44,7 @@ import Midjourney from './pages/Midjourney';
 import Pricing from './pages/Pricing';
 import Task from './pages/Task';
 import ModelPage from './pages/Model';
-import ModelDeploymentPage from './pages/ModelDeployment';
 import Playground from './pages/Playground';
-import Subscription from './pages/Subscription';
 import OAuth2Callback from './components/auth/OAuth2Callback';
 import PersonalSetting from './components/settings/PersonalSetting';
 import Setup from './pages/Setup';
@@ -55,11 +55,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const About = lazy(() => import('./pages/About'));
 const UserAgreement = lazy(() => import('./pages/UserAgreement'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
-
-function DynamicOAuth2Callback() {
-  const { provider } = useParams();
-  return <OAuth2Callback type={provider} />;
-}
+const ChatRoom = lazy(() => import('./pages/ChatRoom'));
 
 function App() {
   const location = useLocation();
@@ -116,22 +112,6 @@ function App() {
           }
         />
         <Route
-          path='/console/deployment'
-          element={
-            <AdminRoute>
-              <ModelDeploymentPage />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path='/console/subscription'
-          element={
-            <AdminRoute>
-              <Subscription />
-            </AdminRoute>
-          }
-        />
-        <Route
           path='/console/channel'
           element={
             <AdminRoute>
@@ -164,10 +144,26 @@ function App() {
           }
         />
         <Route
+          path='/console/invitation'
+          element={
+            <AdminRoute>
+              <Invitation />
+            </AdminRoute>
+          }
+        />
+        <Route
           path='/console/user'
           element={
             <AdminRoute>
               <User />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/archived-user'
+          element={
+            <AdminRoute>
+              <ArchivedUser />
             </AdminRoute>
           }
         />
@@ -236,14 +232,6 @@ function App() {
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
               <OAuth2Callback type='linuxdo'></OAuth2Callback>
-            </Suspense>
-          }
-        />
-        <Route
-          path='/oauth/:provider'
-          element={
-            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-              <DynamicOAuth2Callback />
             </Suspense>
           }
         />
@@ -332,6 +320,14 @@ function App() {
                 <Pricing />
               </Suspense>
             )
+          }
+        />
+        <Route
+          path='/chat-room'
+          element={
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              <ChatRoom />
+            </Suspense>
           }
         />
         <Route

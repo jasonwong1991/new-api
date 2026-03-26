@@ -47,7 +47,7 @@ const TokensFilters = ({
         setFormApi(api);
         formApiRef.current = api;
       }}
-      onSubmit={() => searchTokens(1)}
+      onSubmit={searchTokens}
       allowEmpty={true}
       autoComplete='off'
       layout='horizontal'

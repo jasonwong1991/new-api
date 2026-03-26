@@ -208,7 +208,6 @@ const renderOperations = (
     showDeleteModal,
     showResetPasskeyModal,
     showResetTwoFAModal,
-    showUserSubscriptionsModal,
     t,
   },
 ) => {
@@ -217,14 +216,6 @@ const renderOperations = (
   }
 
   const moreMenu = [
-    {
-      node: 'item',
-      name: t('订阅管理'),
-      onClick: () => showUserSubscriptionsModal(record),
-    },
-    {
-      node: 'divider',
-    },
     {
       node: 'item',
       name: t('重置 Passkey'),
@@ -308,7 +299,6 @@ export const getUsersColumns = ({
   showDeleteModal,
   showResetPasskeyModal,
   showResetTwoFAModal,
-  showUserSubscriptionsModal,
 }) => {
   return [
     {
@@ -319,6 +309,34 @@ export const getUsersColumns = ({
       title: t('用户名'),
       dataIndex: 'username',
       render: (text, record) => renderUsername(text, record),
+    },
+    {
+      title: 'Linux.do',
+      dataIndex: 'linux_do_username',
+      render: (text, record) => {
+        if (!text) return '-';
+        return (
+          <Space spacing={4}>
+            {record.linux_do_avatar && (
+              <img
+                src={record.linux_do_avatar}
+                alt={text}
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                }}
+              />
+            )}
+            <span>{text}</span>
+            {record.linux_do_level > 0 && (
+              <Tag color='blue' size='small'>
+                Lv.{record.linux_do_level}
+              </Tag>
+            )}
+          </Space>
+        );
+      },
     },
     {
       title: t('状态'),
@@ -365,7 +383,6 @@ export const getUsersColumns = ({
           showDeleteModal,
           showResetPasskeyModal,
           showResetTwoFAModal,
-          showUserSubscriptionsModal,
           t,
         }),
     },

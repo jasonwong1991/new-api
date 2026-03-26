@@ -23,6 +23,7 @@ import { API, showError, showSuccess, toBoolean } from '../../helpers';
 import SettingsAPIInfo from '../../pages/Setting/Dashboard/SettingsAPIInfo';
 import SettingsAnnouncements from '../../pages/Setting/Dashboard/SettingsAnnouncements';
 import SettingsFAQ from '../../pages/Setting/Dashboard/SettingsFAQ';
+import SettingsFAQBoard from '../../pages/Setting/Dashboard/SettingsFAQBoard';
 import SettingsUptimeKuma from '../../pages/Setting/Dashboard/SettingsUptimeKuma';
 import SettingsDataDashboard from '../../pages/Setting/Dashboard/SettingsDataDashboard';
 
@@ -159,6 +160,11 @@ const DashboardSetting = () => {
         {/* 常见问答管理 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsFAQ options={inputs} refresh={onRefresh} />
+        </Card>
+
+        {/* 用户留言审核 */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingsFAQBoard />
         </Card>
 
         {/* Uptime Kuma 监控设置 */}

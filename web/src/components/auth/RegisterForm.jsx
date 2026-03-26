@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   API,
@@ -27,21 +27,11 @@ import {
   showSuccess,
   updateAPI,
   getSystemName,
-  getOAuthProviderIcon,
   setUserData,
   onDiscordOAuthClicked,
-  onCustomOAuthClicked,
 } from '../../helpers';
 import Turnstile from 'react-turnstile';
-import {
-  Button,
-  Card,
-  Checkbox,
-  Divider,
-  Form,
-  Icon,
-  Modal,
-} from '@douyinfe/semi-ui';
+import { Button, Card, Checkbox, Divider, Form, Icon, Modal } from '@douyinfe/semi-ui';
 import Title from '@douyinfe/semi-ui/lib/es/typography/title';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
 import {
@@ -68,11 +58,6 @@ import { SiDiscord } from 'react-icons/si';
 const RegisterForm = () => {
   let navigate = useNavigate();
   const { t } = useTranslation();
-  const githubButtonTextKeyByState = {
-    idle: '使用 GitHub 继续',
-    redirecting: '正在跳转 GitHub...',
-    timeout: '请求超时，请刷新页面后重新发起 GitHub 登录',
-  };
   const [inputs, setInputs] = useState({
     username: '',
     password: '',
@@ -80,6 +65,7 @@ const RegisterForm = () => {
     email: '',
     verification_code: '',
     wechat_verification_code: '',
+    invitation_code: '',
   });
   const { username, password, password2 } = inputs;
   const [userState, userDispatch] = useContext(UserContext);
@@ -100,16 +86,14 @@ const RegisterForm = () => {
   const [otherRegisterOptionsLoading, setOtherRegisterOptionsLoading] =
     useState(false);
   const [wechatCodeSubmitLoading, setWechatCodeSubmitLoading] = useState(false);
-  const [customOAuthLoading, setCustomOAuthLoading] = useState({});
   const [disableButton, setDisableButton] = useState(false);
   const [countdown, setCountdown] = useState(30);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [hasUserAgreement, setHasUserAgreement] = useState(false);
   const [hasPrivacyPolicy, setHasPrivacyPolicy] = useState(false);
-  const [githubButtonState, setGithubButtonState] = useState('idle');
+  const [githubButtonText, setGithubButtonText] = useState('使用 GitHub 继续');
   const [githubButtonDisabled, setGithubButtonDisabled] = useState(false);
   const githubTimeoutRef = useRef(null);
-  const githubButtonText = t(githubButtonTextKeyByState[githubButtonState]);
 
   const logo = getLogo();
   const systemName = getSystemName();
@@ -119,41 +103,33 @@ const RegisterForm = () => {
     localStorage.setItem('aff', affCode);
   }
 
-  const status = useMemo(() => {
-    if (statusState?.status) return statusState.status;
+  // 优先使用 Context 中的实时状态，回退到 localStorage
+  const status = statusState?.status || (() => {
     const savedStatus = localStorage.getItem('status');
-    if (!savedStatus) return {};
-    try {
-      return JSON.parse(savedStatus) || {};
-    } catch (err) {
-      return {};
-    }
-  }, [statusState?.status]);
-  const hasCustomOAuthProviders =
-    (status.custom_oauth_providers || []).length > 0;
-  const hasOAuthRegisterOptions = Boolean(
-    status.github_oauth ||
-      status.discord_oauth ||
-      status.oidc_enabled ||
-      status.wechat_login ||
-      status.linuxdo_oauth ||
-      status.telegram_oauth ||
-      hasCustomOAuthProviders,
+    return savedStatus ? JSON.parse(savedStatus) : {};
+  })();
+
+  const [showEmailVerification, setShowEmailVerification] = useState(() => {
+    return status.email_verification ?? false;
+  });
+  const [invitationCodeRequired, setInvitationCodeRequired] = useState(
+    status.invitation_code_required || false
   );
 
-  const [showEmailVerification, setShowEmailVerification] = useState(false);
-
   useEffect(() => {
-    setShowEmailVerification(!!status?.email_verification);
-    if (status?.turnstile_check) {
+    const currentStatus = statusState?.status || status;
+    setShowEmailVerification(currentStatus.email_verification);
+    if (currentStatus.turnstile_check) {
       setTurnstileEnabled(true);
-      setTurnstileSiteKey(status.turnstile_site_key);
+      setTurnstileSiteKey(currentStatus.turnstile_site_key);
     }
 
     // 从 status 获取用户协议和隐私政策的启用状态
-    setHasUserAgreement(status?.user_agreement_enabled || false);
-    setHasPrivacyPolicy(status?.privacy_policy_enabled || false);
-  }, [status]);
+    setHasUserAgreement(currentStatus.user_agreement_enabled || false);
+    setHasPrivacyPolicy(currentStatus.privacy_policy_enabled || false);
+    // 从 status 获取邀请码是否必填
+    setInvitationCodeRequired(currentStatus.invitation_code_required || false);
+  }, [statusState?.status, status]);
 
   useEffect(() => {
     let countdownInterval = null;
@@ -263,7 +239,7 @@ const RegisterForm = () => {
     setVerificationCodeLoading(true);
     try {
       const res = await API.get(
-        `/api/verification?email=${encodeURIComponent(inputs.email)}&turnstile=${turnstileToken}`,
+        `/api/verification?email=${inputs.email}&turnstile=${turnstileToken}`,
       );
       const { success, message } = res.data;
       if (success) {
@@ -283,64 +259,64 @@ const RegisterForm = () => {
     if (githubButtonDisabled) {
       return;
     }
+    if (invitationCodeRequired && !inputs.invitation_code) {
+      showInfo(t('请先填写邀请码'));
+      return;
+    }
     setGithubLoading(true);
     setGithubButtonDisabled(true);
-    setGithubButtonState('redirecting');
+    setGithubButtonText(t('正在跳转 GitHub...'));
     if (githubTimeoutRef.current) {
       clearTimeout(githubTimeoutRef.current);
     }
     githubTimeoutRef.current = setTimeout(() => {
       setGithubLoading(false);
-      setGithubButtonState('timeout');
+      setGithubButtonText(t('请求超时，请刷新页面后重新发起 GitHub 登录'));
       setGithubButtonDisabled(true);
     }, 20000);
     try {
-      onGitHubOAuthClicked(status.github_client_id, { shouldLogout: true });
+      onGitHubOAuthClicked(status.github_client_id, inputs.invitation_code);
     } finally {
       setTimeout(() => setGithubLoading(false), 3000);
     }
   };
 
   const handleDiscordClick = () => {
+    if (invitationCodeRequired && !inputs.invitation_code) {
+      showInfo(t('请先填写邀请码'));
+      return;
+    }
     setDiscordLoading(true);
     try {
-      onDiscordOAuthClicked(status.discord_client_id, { shouldLogout: true });
+      onDiscordOAuthClicked(status.discord_client_id, inputs.invitation_code);
     } finally {
       setTimeout(() => setDiscordLoading(false), 3000);
     }
   };
 
   const handleOIDCClick = () => {
+    if (invitationCodeRequired && !inputs.invitation_code) {
+      showInfo(t('请先填写邀请码'));
+      return;
+    }
     setOidcLoading(true);
     try {
-      onOIDCClicked(
-        status.oidc_authorization_endpoint,
-        status.oidc_client_id,
-        false,
-        { shouldLogout: true },
-      );
+      onOIDCClicked(status.oidc_authorization_endpoint, status.oidc_client_id, false, inputs.invitation_code);
     } finally {
       setTimeout(() => setOidcLoading(false), 3000);
     }
   };
 
   const handleLinuxDOClick = () => {
+    if (invitationCodeRequired && !inputs.invitation_code) {
+      showInfo(t('请先填写邀请码'));
+      return;
+    }
     setLinuxdoLoading(true);
     try {
-      onLinuxDOOAuthClicked(status.linuxdo_client_id, { shouldLogout: true });
+      onLinuxDOOAuthClicked(status.linuxdo_client_id, inputs.invitation_code);
     } finally {
       setTimeout(() => setLinuxdoLoading(false), 3000);
-    }
-  };
-
-  const handleCustomOAuthClick = (provider) => {
-    setCustomOAuthLoading((prev) => ({ ...prev, [provider.slug]: true }));
-    try {
-      onCustomOAuthClicked(provider, { shouldLogout: true });
-    } finally {
-      setTimeout(() => {
-        setCustomOAuthLoading((prev) => ({ ...prev, [provider.slug]: false }));
-      }, 3000);
     }
   };
 
@@ -410,6 +386,18 @@ const RegisterForm = () => {
             </div>
             <div className='px-2 py-8'>
               <div className='space-y-3'>
+                {invitationCodeRequired && (
+                  <Form className='mb-4'>
+                    <Form.Input
+                      field='invitation_code'
+                      label={t('邀请码')}
+                      placeholder={t('请输入邀请码')}
+                      name='invitation_code'
+                      onChange={(value) => handleChange('invitation_code', value)}
+                      prefix={<IconKey />}
+                    />
+                  </Form>
+                )}
                 {status.wechat_login && (
                   <Button
                     theme='outline'
@@ -444,15 +432,7 @@ const RegisterForm = () => {
                     theme='outline'
                     className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
                     type='tertiary'
-                    icon={
-                      <SiDiscord
-                        style={{
-                          color: '#5865F2',
-                          width: '20px',
-                          height: '20px',
-                        }}
-                      />
-                    }
+                    icon={<SiDiscord style={{ color: '#5865F2', width: '20px', height: '20px' }} />}
                     onClick={handleDiscordClick}
                     loading={discordLoading}
                   >
@@ -493,23 +473,6 @@ const RegisterForm = () => {
                     <span className='ml-3'>{t('使用 LinuxDO 继续')}</span>
                   </Button>
                 )}
-
-                {status.custom_oauth_providers &&
-                  status.custom_oauth_providers.map((provider) => (
-                    <Button
-                      key={provider.slug}
-                      theme='outline'
-                      className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
-                      type='tertiary'
-                      icon={getOAuthProviderIcon(provider.icon || '', 20)}
-                      onClick={() => handleCustomOAuthClick(provider)}
-                      loading={customOAuthLoading[provider.slug]}
-                    >
-                      <span className='ml-3'>
-                        {t('使用 {{name}} 继续', { name: provider.name })}
-                      </span>
-                    </Button>
-                  ))}
 
                 {status.telegram_oauth && (
                   <div className='flex justify-center my-2'>
@@ -637,6 +600,17 @@ const RegisterForm = () => {
                   </>
                 )}
 
+                {invitationCodeRequired && (
+                  <Form.Input
+                    field='invitation_code'
+                    label={t('邀请码')}
+                    placeholder={t('请输入邀请码')}
+                    name='invitation_code'
+                    onChange={(value) => handleChange('invitation_code', value)}
+                    prefix={<IconKey />}
+                  />
+                )}
+
                 {(hasUserAgreement || hasPrivacyPolicy) && (
                   <div className='pt-4'>
                     <Checkbox
@@ -683,16 +657,19 @@ const RegisterForm = () => {
                     htmlType='submit'
                     onClick={handleSubmit}
                     loading={registerLoading}
-                    disabled={
-                      (hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms
-                    }
+                    disabled={(hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms}
                   >
                     {t('注册')}
                   </Button>
                 </div>
               </Form>
 
-              {hasOAuthRegisterOptions && (
+              {(status.github_oauth ||
+                status.discord_oauth ||
+                status.oidc_enabled ||
+                status.wechat_login ||
+                status.linuxdo_oauth ||
+                status.telegram_oauth) && (
                 <>
                   <Divider margin='12px' align='center'>
                     {t('或')}
@@ -780,23 +757,51 @@ const RegisterForm = () => {
         className='blur-ball blur-ball-teal'
         style={{ top: '50%', left: '-120px' }}
       />
-      <div className='w-full max-w-sm mt-[60px]'>
-        {showEmailRegister ||
-        !hasOAuthRegisterOptions
-          ? renderEmailRegisterForm()
-          : renderOAuthOptions()}
-        {renderWeChatLoginModal()}
-
-        {turnstileEnabled && (
-          <div className='flex justify-center mt-6'>
-            <Turnstile
-              sitekey={turnstileSiteKey}
-              onVerify={(token) => {
-                setTurnstileToken(token);
-              }}
-            />
+      <div className='w-full max-w-4xl mt-[60px] flex flex-col lg:flex-row lg:items-start lg:gap-8'>
+        {/* 左侧提示信息 - 桌面端显示在左侧，移动端显示在上方 */}
+        <div className='w-full lg:w-80 lg:flex-shrink-0 mb-6 lg:mb-0 lg:sticky lg:top-[80px]'>
+          <div className='p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-200'>
+            <div className='flex items-center gap-2 mb-3 font-medium'>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              {t('温馨提示')}
+            </div>
+            <p className='mb-3'>
+              {t('未注册用户请通过LDC商店购买注册邀请码后填入再进行注册')}
+            </p>
+            <p>
+              {t('如果出现无法登录的情况请先清除cookie和缓存后再试，如果依然报错说明你未注册本站或账号已被清理。')}
+            </p>
           </div>
-        )}
+        </div>
+
+        {/* 右侧注册表单 */}
+        <div className='w-full max-w-sm mx-auto lg:mx-0'>
+          {showEmailRegister ||
+          !(
+            status.github_oauth ||
+            status.discord_oauth ||
+            status.oidc_enabled ||
+            status.wechat_login ||
+            status.linuxdo_oauth ||
+            status.telegram_oauth
+          )
+            ? renderEmailRegisterForm()
+            : renderOAuthOptions()}
+          {renderWeChatLoginModal()}
+
+          {turnstileEnabled && (
+            <div className='flex justify-center mt-6'>
+              <Turnstile
+                sitekey={turnstileSiteKey}
+                onVerify={(token) => {
+                  setTurnstileToken(token);
+                }}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

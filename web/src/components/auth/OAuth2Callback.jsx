@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useContext, useEffect, useRef } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -35,9 +35,6 @@ const OAuth2Callback = (props) => {
   const [searchParams] = useSearchParams();
   const [, userDispatch] = useContext(UserContext);
   const navigate = useNavigate();
-  
-  // 防止 React 18 Strict Mode 下重复执行
-  const hasExecuted = useRef(false);
 
   // 最大重试次数
   const MAX_RETRIES = 3;
@@ -51,12 +48,10 @@ const OAuth2Callback = (props) => {
       const { success, message, data } = resData;
 
       if (!success) {
-        // 业务错误不重试，直接显示错误
-        showError(message || t('授权失败'));
-        return;
+        throw new Error(message || 'OAuth2 callback error');
       }
 
-      if (data?.action === 'bind') {
+      if (message === 'bind') {
         showSuccess(t('绑定成功！'));
         navigate('/console/personal');
       } else {
@@ -68,7 +63,6 @@ const OAuth2Callback = (props) => {
         navigate('/console/token');
       }
     } catch (error) {
-      // 网络错误等可重试
       if (retry < MAX_RETRIES) {
         // 递增的退避等待
         await new Promise((resolve) => setTimeout(resolve, (retry + 1) * 2000));
@@ -82,12 +76,6 @@ const OAuth2Callback = (props) => {
   };
 
   useEffect(() => {
-    // 防止 React 18 Strict Mode 下重复执行
-    if (hasExecuted.current) {
-      return;
-    }
-    hasExecuted.current = true;
-
     const code = searchParams.get('code');
     const state = searchParams.get('state');
 

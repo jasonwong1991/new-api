@@ -20,7 +20,6 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import JSONEditor from '../../../common/ui/JSONEditor';
 import {
-  Banner,
   SideSheet,
   Form,
   Button,
@@ -34,7 +33,7 @@ import {
   Row,
 } from '@douyinfe/semi-ui';
 import { Save, X, FileText } from 'lucide-react';
-import { IconAlertTriangle, IconLink } from '@douyinfe/semi-icons';
+import { IconLink } from '@douyinfe/semi-icons';
 import { API, showError, showSuccess } from '../../../../helpers';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
@@ -45,10 +44,9 @@ const { Text, Title } = Typography;
 const ENDPOINT_TEMPLATE = {
   openai: { path: '/v1/chat/completions', method: 'POST' },
   'openai-response': { path: '/v1/responses', method: 'POST' },
-  'openai-response-compact': { path: '/v1/responses/compact', method: 'POST' },
   anthropic: { path: '/v1/messages', method: 'POST' },
   gemini: { path: '/v1beta/models/{model}:generateContent', method: 'POST' },
-  'jina-rerank': { path: '/v1/rerank', method: 'POST' },
+  'jina-rerank': { path: '/rerank', method: 'POST' },
   'image-generation': { path: '/v1/images/generations', method: 'POST' },
 };
 
@@ -447,23 +445,9 @@ const EditModelModal = (props) => {
                     />
                   </Col>
                   <Col span={24}>
-                    <Banner
-                      type='warning'
-                      closeIcon={null}
-                      icon={
-                        <IconAlertTriangle
-                          size='large'
-                          style={{ color: 'var(--semi-color-warning)' }}
-                        />
-                      }
-                      description={t(
-                        '提示：此处配置仅用于控制「模型广场」对用户的展示效果，不会影响模型的实际调用与路由。若需配置真实调用行为，请前往「渠道管理」进行设置。',
-                      )}
-                      style={{ marginBottom: 12 }}
-                    />
                     <JSONEditor
                       field='endpoints'
-                      label={t('在模型广场向用户展示的端点')}
+                      label={t('端点映射')}
                       placeholder={
                         '{\n  "openai": {"path": "/v1/chat/completions", "method": "POST"}\n}'
                       }

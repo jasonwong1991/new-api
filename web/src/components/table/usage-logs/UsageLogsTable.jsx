@@ -40,10 +40,8 @@ const LogsTable = (logsData) => {
     handlePageSizeChange,
     copyText,
     showUserInfoFunc,
-    openChannelAffinityUsageCacheModal,
     hasExpandableRows,
     isAdminUser,
-    billingDisplayMode,
     t,
     COLUMN_KEYS,
   } = logsData;
@@ -55,19 +53,9 @@ const LogsTable = (logsData) => {
       COLUMN_KEYS,
       copyText,
       showUserInfoFunc,
-      openChannelAffinityUsageCacheModal,
       isAdminUser,
-      billingDisplayMode,
     });
-  }, [
-    t,
-    COLUMN_KEYS,
-    copyText,
-    showUserInfoFunc,
-    openChannelAffinityUsageCacheModal,
-    isAdminUser,
-    billingDisplayMode,
-  ]);
+  }, [t, COLUMN_KEYS, copyText, showUserInfoFunc, isAdminUser]);
 
   // Filter columns based on visibility settings
   const getVisibleColumns = () => {
@@ -102,7 +90,7 @@ const LogsTable = (logsData) => {
       loading={loading}
       scroll={compactMode ? undefined : { x: 'max-content' }}
       className='rounded-xl overflow-hidden'
-      size='small'
+      size='middle'
       empty={
         <Empty
           image={<IllustrationNoResult style={{ width: 150, height: 150 }} />}

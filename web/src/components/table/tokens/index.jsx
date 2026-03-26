@@ -38,7 +38,6 @@ import TokensActions from './TokensActions';
 import TokensFilters from './TokensFilters';
 import TokensDescription from './TokensDescription';
 import EditTokenModal from './modals/EditTokenModal';
-import CCSwitchModal from './modals/CCSwitchModal';
 import { useTokensData } from '../../../hooks/tokens/useTokensData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { createCardProPagination } from '../../../helpers/utils';
@@ -46,10 +45,8 @@ import { createCardProPagination } from '../../../helpers/utils';
 function TokensPage() {
   // Define the function first, then pass it into the hook to avoid TDZ errors
   const openFluentNotificationRef = useRef(null);
-  const openCCSwitchModalRef = useRef(null);
-  const tokensData = useTokensData(
-    (key) => openFluentNotificationRef.current?.(key),
-    (key) => openCCSwitchModalRef.current?.(key),
+  const tokensData = useTokensData((key) =>
+    openFluentNotificationRef.current?.(key),
   );
   const isMobile = useIsMobile();
   const latestRef = useRef({
@@ -58,14 +55,11 @@ function TokensPage() {
     t: (k) => k,
     selectedModel: '',
     prefillKey: '',
-    fetchTokenKey: async () => '',
   });
   const [modelOptions, setModelOptions] = useState([]);
   const [selectedModel, setSelectedModel] = useState('');
   const [fluentNoticeOpen, setFluentNoticeOpen] = useState(false);
   const [prefillKey, setPrefillKey] = useState('');
-  const [ccSwitchVisible, setCCSwitchVisible] = useState(false);
-  const [ccSwitchKey, setCCSwitchKey] = useState('');
 
   // Keep latest data for handlers inside notifications
   useEffect(() => {
@@ -75,7 +69,6 @@ function TokensPage() {
       t: tokensData.t,
       selectedModel,
       prefillKey,
-      fetchTokenKey: tokensData.fetchTokenKey,
     };
   }, [
     tokensData.tokens,
@@ -83,7 +76,6 @@ function TokensPage() {
     tokensData.t,
     selectedModel,
     prefillKey,
-    tokensData.fetchTokenKey,
   ]);
 
   const loadModels = async () => {
@@ -191,24 +183,14 @@ function TokensPage() {
   // assign after definition so hook callback can call it safely
   openFluentNotificationRef.current = openFluentNotification;
 
-  function openCCSwitchModal(key) {
-    if (modelOptions.length === 0) {
-      loadModels();
-    }
-    setCCSwitchKey(key || '');
-    setCCSwitchVisible(true);
-  }
-  openCCSwitchModalRef.current = openCCSwitchModal;
-
   // Prefill to Fluent handler
-  const handlePrefillToFluent = async () => {
+  const handlePrefillToFluent = () => {
     const {
       tokens,
       selectedKeys,
       t,
       selectedModel: chosenModel,
       prefillKey: overrideKey,
-      fetchTokenKey,
     } = latestRef.current;
     const container = document.getElementById('fluent-new-api-container');
     if (!container) {
@@ -245,11 +227,7 @@ function TokensPage() {
         Toast.warning(t('没有可用令牌用于填充'));
         return;
       }
-      try {
-        apiKeyToUse = 'sk-' + (await fetchTokenKey(token));
-      } catch (_) {
-        return;
-      }
+      apiKeyToUse = 'sk-' + token.key;
     }
 
     const payload = {
@@ -359,6 +337,7 @@ function TokensPage() {
     setShowEdit,
     batchCopyTokens,
     batchDeleteTokens,
+    copyText,
 
     // Filters state
     formInitValues,
@@ -384,13 +363,6 @@ function TokensPage() {
         handleClose={closeEdit}
       />
 
-      <CCSwitchModal
-        visible={ccSwitchVisible}
-        onClose={() => setCCSwitchVisible(false)}
-        tokenKey={ccSwitchKey}
-        modelOptions={modelOptions}
-      />
-
       <CardPro
         type='type1'
         descriptionArea={
@@ -408,6 +380,7 @@ function TokensPage() {
               setShowEdit={setShowEdit}
               batchCopyTokens={batchCopyTokens}
               batchDeleteTokens={batchDeleteTokens}
+              copyText={copyText}
               t={t}
             />
 

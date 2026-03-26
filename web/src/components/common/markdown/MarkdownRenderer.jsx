@@ -26,6 +26,7 @@ import RemarkBreaks from 'remark-breaks';
 import RehypeKatex from 'rehype-katex';
 import RemarkGfm from 'remark-gfm';
 import RehypeHighlight from 'rehype-highlight';
+import RehypeRaw from 'rehype-raw';
 import { useRef, useState, useEffect, useMemo } from 'react';
 import mermaid from 'mermaid';
 import React from 'react';
@@ -90,49 +91,6 @@ export function Mermaid(props) {
     >
       {props.code}
     </div>
-  );
-}
-
-function SandboxedHtmlPreview({ code }) {
-  const iframeRef = useRef(null);
-  const [iframeHeight, setIframeHeight] = useState(150);
-
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    const handleLoad = () => {
-      try {
-        const doc = iframe.contentDocument || iframe.contentWindow?.document;
-        if (doc) {
-          const height =
-            doc.documentElement.scrollHeight || doc.body.scrollHeight;
-          setIframeHeight(Math.min(Math.max(height + 16, 60), 600));
-        }
-      } catch {
-        // sandbox restrictions may prevent access, that's fine
-      }
-    };
-
-    iframe.addEventListener('load', handleLoad);
-    return () => iframe.removeEventListener('load', handleLoad);
-  }, [code]);
-
-  return (
-    <iframe
-      ref={iframeRef}
-      sandbox='allow-same-origin'
-      srcDoc={code}
-      title='HTML Preview'
-      style={{
-        width: '100%',
-        height: `${iframeHeight}px`,
-        border: 'none',
-        overflow: 'auto',
-        backgroundColor: '#fff',
-        borderRadius: '4px',
-      }}
-    />
   );
 }
 
@@ -270,7 +228,7 @@ export function PreCode(props) {
           >
             HTML预览:
           </div>
-          <SandboxedHtmlPreview code={htmlCode} />
+          <div dangerouslySetInnerHTML={{ __html: htmlCode }} />
         </div>
       )}
     </>
@@ -395,6 +353,7 @@ function _MarkdownContent(props) {
 
   const rehypePluginsBase = useMemo(() => {
     const base = [
+      RehypeRaw,
       RehypeKatex,
       [
         RehypeHighlight,

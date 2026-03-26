@@ -17,8 +17,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState, useRef } from 'react';
-import { Button, Col, Form, Row, Spin } from '@douyinfe/semi-ui';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import {
+  Button,
+  Col,
+  Form,
+  Row,
+  Spin,
+  Banner,
+  Select,
+  TagGroup,
+  Typography,
+} from '@douyinfe/semi-ui';
 import {
   compareObjects,
   API,
@@ -28,6 +38,7 @@ import {
   verifyJSON,
 } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
+import { debounce } from 'lodash';
 
 export default function RequestRateLimit(props) {
   const { t } = useTranslation();
@@ -39,13 +50,83 @@ export default function RequestRateLimit(props) {
     ModelRequestRateLimitSuccessCount: 1000,
     ModelRequestRateLimitDurationMinutes: 1,
     ModelRequestRateLimitGroup: '',
+    RateLimitExemptWhitelist: '',
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
 
+  // Whitelist user search states
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [whitelistUsers, setWhitelistUsers] = useState([]);
+  const [originalWhitelistUsers, setOriginalWhitelistUsers] = useState([]);
+
+  // Debounced search function
+  const searchUsers = useCallback(
+    debounce(async (keyword) => {
+      if (!keyword || keyword.trim().length < 1) {
+        setSearchResults([]);
+        return;
+      }
+      setSearching(true);
+      try {
+        const res = await API.get(
+          `/api/user/search?keyword=${encodeURIComponent(keyword)}&p=1&page_size=10`,
+        );
+        const { success, data } = res.data;
+        if (success && data?.items) {
+          const options = data.items
+            .filter((user) => !whitelistUsers.some((u) => u.id === user.id))
+            .map((user) => ({
+              value: user.id,
+              label: `${user.username} (ID: ${user.id})${user.display_name ? ` - ${user.display_name}` : ''}`,
+              user: user,
+            }));
+          setSearchResults(options);
+        }
+      } catch (error) {
+        console.error('Search users failed:', error);
+      } finally {
+        setSearching(false);
+      }
+    }, 300),
+    [whitelistUsers],
+  );
+
+  const handleUserSelect = (value, option) => {
+    if (value) {
+      const selectedOption = searchResults.find(opt => opt.value === value);
+      if (selectedOption?.user) {
+        const user = selectedOption.user;
+        if (!whitelistUsers.some((u) => u.id === user.id)) {
+          setWhitelistUsers([...whitelistUsers, { id: user.id, username: user.username }]);
+        }
+      }
+    }
+    setSearchResults([]);
+  };
+
+  const handleUserRemove = (userId) => {
+    setWhitelistUsers(whitelistUsers.filter((u) => u.id !== userId));
+  };
+
   function onSubmit() {
-    const updateArray = compareObjects(inputs, inputsRow);
-    if (!updateArray.length) return showWarning(t('你似乎并没有修改什么'));
+    // Check whitelist changes
+    const currentWhitelistIds = whitelistUsers.map((u) => u.id).sort((a, b) => a - b);
+    const originalWhitelistIds = originalWhitelistUsers.map((u) => u.id).sort((a, b) => a - b);
+    const whitelistChanged = JSON.stringify(currentWhitelistIds) !== JSON.stringify(originalWhitelistIds);
+
+    // Check other input changes (excluding RateLimitExemptWhitelist which we handle separately)
+    const inputsWithoutWhitelist = { ...inputs };
+    const inputsRowWithoutWhitelist = { ...inputsRow };
+    delete inputsWithoutWhitelist.RateLimitExemptWhitelist;
+    delete inputsRowWithoutWhitelist.RateLimitExemptWhitelist;
+    const updateArray = compareObjects(inputsWithoutWhitelist, inputsRowWithoutWhitelist);
+
+    if (!updateArray.length && !whitelistChanged) {
+      return showWarning(t('你似乎并没有修改什么'));
+    }
+
     const requestQueue = updateArray.map((item) => {
       let value = '';
       if (typeof inputs[item.key] === 'boolean') {
@@ -58,6 +139,17 @@ export default function RequestRateLimit(props) {
         value,
       });
     });
+
+    // Add whitelist update if changed
+    if (whitelistChanged) {
+      const whitelistValue = currentWhitelistIds.length > 0 ? JSON.stringify(currentWhitelistIds) : '';
+      requestQueue.push(
+        API.put('/api/option/', {
+          key: 'RateLimitExemptWhitelist',
+          value: whitelistValue,
+        }),
+      );
+    }
     setLoading(true);
     Promise.all(requestQueue)
       .then((res) => {
@@ -75,6 +167,7 @@ export default function RequestRateLimit(props) {
         }
 
         showSuccess(t('保存成功'));
+        setOriginalWhitelistUsers([...whitelistUsers]);
         props.refresh();
       })
       .catch(() => {
@@ -84,6 +177,42 @@ export default function RequestRateLimit(props) {
         setLoading(false);
       });
   }
+
+  // Parse whitelist JSON and fetch user info
+  const initWhitelistUsers = useCallback(async (whitelistJson) => {
+    if (!whitelistJson || whitelistJson.trim() === '') {
+      setWhitelistUsers([]);
+      setOriginalWhitelistUsers([]);
+      return;
+    }
+    try {
+      const userIds = JSON.parse(whitelistJson);
+      if (!Array.isArray(userIds) || userIds.length === 0) {
+        setWhitelistUsers([]);
+        setOriginalWhitelistUsers([]);
+        return;
+      }
+      // Fetch user info for each ID
+      const users = await Promise.all(
+        userIds.map(async (id) => {
+          try {
+            const res = await API.get(`/api/user/${id}`);
+            if (res.data.success && res.data.data) {
+              return { id: res.data.data.id, username: res.data.data.username };
+            }
+          } catch {
+            // User not found, just use ID
+          }
+          return { id, username: `ID: ${id}` };
+        }),
+      );
+      setWhitelistUsers(users);
+      setOriginalWhitelistUsers(users);
+    } catch {
+      setWhitelistUsers([]);
+      setOriginalWhitelistUsers([]);
+    }
+  }, []);
 
   useEffect(() => {
     const currentInputs = {};
@@ -95,6 +224,14 @@ export default function RequestRateLimit(props) {
     setInputs(currentInputs);
     setInputsRow(structuredClone(currentInputs));
     refForm.current.setValues(currentInputs);
+
+    // Initialize whitelist users
+    if (props.options?.RateLimitExemptWhitelist) {
+      initWhitelistUsers(props.options.RateLimitExemptWhitelist);
+    } else {
+      setWhitelistUsers([]);
+      setOriginalWhitelistUsers([]);
+    }
   }, [props.options]);
 
   return (
@@ -105,6 +242,79 @@ export default function RequestRateLimit(props) {
           getFormApi={(formAPI) => (refForm.current = formAPI)}
           style={{ marginBottom: 15 }}
         >
+          <Form.Section text={t('速率限制豁免白名单')}>
+            <Row gutter={16}>
+              <Col span={24}>
+                <Banner
+                  type='warning'
+                  icon={null}
+                  description={t(
+                    '白名单用户将完全绕过所有速率限制（最高优先级）。请谨慎添加用户。',
+                  )}
+                  style={{ marginBottom: 16 }}
+                />
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col xs={24} sm={16}>
+                <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+                  {t('豁免用户列表')}
+                </Typography.Text>
+                <Select
+                  style={{ width: '100%', marginBottom: 12 }}
+                  placeholder={t('输入用户名、邮箱或ID搜索用户')}
+                  filter
+                  remote
+                  onSearch={searchUsers}
+                  loading={searching}
+                  optionList={searchResults}
+                  onChange={handleUserSelect}
+                  value={null}
+                  emptyContent={
+                    searching ? t('搜索中...') : t('输入关键词搜索用户')
+                  }
+                  showClear
+                />
+                {whitelistUsers.length > 0 && (
+                  <TagGroup
+                    maxTagCount={20}
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 8,
+                    }}
+                    tagList={whitelistUsers.map((user) => ({
+                      tagKey: String(user.id),
+                      children: `${user.username} (ID: ${user.id})`,
+                      closable: true,
+                      onClose: () => handleUserRemove(user.id),
+                    }))}
+                  />
+                )}
+                {whitelistUsers.length === 0 && (
+                  <Typography.Text type='tertiary'>
+                    {t('暂无豁免用户')}
+                  </Typography.Text>
+                )}
+                <div
+                  style={{ marginTop: 8, fontSize: 12, color: 'var(--semi-color-text-2)' }}
+                >
+                  <p>{t('说明：')}</p>
+                  <ul style={{ paddingLeft: 20, margin: 0 }}>
+                    <li>{t('支持通过用户名、显示名称、邮箱或ID搜索用户')}</li>
+                    <li>{t('点击标签上的 × 可删除该用户')}</li>
+                    <li>{t('白名单用户优先级最高，将完全绕过所有速率限制')}</li>
+                    <li>{t('建议仅添加管理员或测试账号')}</li>
+                  </ul>
+                </div>
+              </Col>
+            </Row>
+            <Row style={{ marginTop: 16 }}>
+              <Button size='default' onClick={onSubmit}>
+                {t('保存白名单配置')}
+              </Button>
+            </Row>
+          </Form.Section>
           <Form.Section text={t('模型请求速率限制')}>
             <Row gutter={16}>
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>

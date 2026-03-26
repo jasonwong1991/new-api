@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Progress, Tag, Tooltip, Typography } from '@douyinfe/semi-ui';
+import { Progress, Tag, Typography } from '@douyinfe/semi-ui';
 import {
   Music,
   FileText,
@@ -39,11 +39,8 @@ import {
   TASK_ACTION_GENERATE,
   TASK_ACTION_REFERENCE_GENERATE,
   TASK_ACTION_TEXT_GENERATE,
-  TASK_ACTION_REMIX_GENERATE,
 } from '../../../constants/common.constant';
 import { CHANNEL_OPTIONS } from '../../../constants/channel.constants';
-import { stringToColor } from '../../../helpers/render';
-import { Avatar, Space } from '@douyinfe/semi-ui';
 
 const colors = [
   'amber',
@@ -84,8 +81,8 @@ function renderDuration(submit_time, finishTime) {
 
   // 返回带有样式的颜色标签
   return (
-    <Tag color={color} shape='circle'>
-      {durationSec} s
+    <Tag color={color} shape='circle' prefixIcon={<Clock size={14} />}>
+      {durationSec} 秒
     </Tag>
   );
 }
@@ -128,12 +125,6 @@ const renderType = (type, t) => {
           {t('参照生视频')}
         </Tag>
       );
-    case TASK_ACTION_REMIX_GENERATE:
-      return (
-        <Tag color='blue' shape='circle' prefixIcon={<Sparkles size={14} />}>
-          {t('视频Remix')}
-        </Tag>
-      );
     default:
       return (
         <Tag color='white' shape='circle' prefixIcon={<HelpCircle size={14} />}>
@@ -149,7 +140,7 @@ const renderPlatform = (platform, t) => {
   );
   if (option) {
     return (
-      <Tag color={option.color} shape='circle'>
+      <Tag color={option.color} shape='circle' prefixIcon={<Video size={14} />}>
         {option.label}
       </Tag>
     );
@@ -157,13 +148,13 @@ const renderPlatform = (platform, t) => {
   switch (platform) {
     case 'suno':
       return (
-        <Tag color='green' shape='circle'>
+        <Tag color='green' shape='circle' prefixIcon={<Music size={14} />}>
           Suno
         </Tag>
       );
     default:
       return (
-        <Tag color='white' shape='circle'>
+        <Tag color='white' shape='circle' prefixIcon={<HelpCircle size={14} />}>
           {t('未知')}
         </Tag>
       );
@@ -240,7 +231,6 @@ export const getTaskLogsColumns = ({
   openContentModal,
   isAdminUser,
   openVideoModal,
-  openAudioModal,
 }) => {
   return [
     {
@@ -278,6 +268,7 @@ export const getTaskLogsColumns = ({
               color={colors[parseInt(text) % colors.length]}
               size='large'
               shape='circle'
+              prefixIcon={<Hash size={14} />}
               onClick={() => {
                 copyText(text);
               }}
@@ -287,30 +278,6 @@ export const getTaskLogsColumns = ({
           </div>
         ) : (
           <></>
-        );
-      },
-    },
-    {
-      key: COLUMN_KEYS.USERNAME,
-      title: t('用户'),
-      dataIndex: 'username',
-      render: (userId, record, index) => {
-        if (!isAdminUser) {
-          return <></>;
-        }
-        const displayText = String(record.username || userId || '?');
-        return (
-          <Space>
-            <Avatar
-              size='extra-small'
-              color={stringToColor(displayText)}
-            >
-              {displayText.slice(0, 1)}
-            </Avatar>
-            <Typography.Text>
-              {displayText}
-            </Typography.Text>
-          </Space>
         );
       },
     },
@@ -387,43 +354,22 @@ export const getTaskLogsColumns = ({
       dataIndex: 'fail_reason',
       fixed: 'right',
       render: (text, record, index) => {
-        // Suno audio preview
-        const isSunoSuccess =
-          record.platform === 'suno' &&
-          record.status === 'SUCCESS' &&
-          Array.isArray(record.data) &&
-          record.data.some((c) => c.audio_url);
-        if (isSunoSuccess) {
-          return (
-            <a
-              href='#'
-              onClick={(e) => {
-                e.preventDefault();
-                openAudioModal(record.data);
-              }}
-            >
-              {t('点击预览音乐')}
-            </a>
-          );
-        }
-
-        // 视频预览：优先使用 result_url，兼容旧数据 fail_reason 中的 URL
+        // 仅当为视频生成任务且成功，且 fail_reason 是 URL 时显示可点击链接
         const isVideoTask =
           record.action === TASK_ACTION_GENERATE ||
           record.action === TASK_ACTION_TEXT_GENERATE ||
           record.action === TASK_ACTION_FIRST_TAIL_GENERATE ||
-          record.action === TASK_ACTION_REFERENCE_GENERATE ||
-          record.action === TASK_ACTION_REMIX_GENERATE;
+          record.action === TASK_ACTION_REFERENCE_GENERATE;
         const isSuccess = record.status === 'SUCCESS';
-        const resultUrl = record.result_url;
-        const hasResultUrl = typeof resultUrl === 'string' && /^https?:\/\//.test(resultUrl);
-        if (isSuccess && isVideoTask && hasResultUrl) {
+        const isUrl = typeof text === 'string' && /^https?:\/\//.test(text);
+        if (isSuccess && isVideoTask && isUrl) {
+          const videoUrl = `/v1/videos/${record.task_id}/content`;
           return (
             <a
               href='#'
               onClick={(e) => {
                 e.preventDefault();
-                openVideoModal(resultUrl);
+                openVideoModal(videoUrl);
               }}
             >
               {t('点击预览视频')}

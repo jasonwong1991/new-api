@@ -62,10 +62,9 @@ export default function SettingsSidebarModulesAdmin(props) {
       enabled: true,
       channel: true,
       models: true,
-      deployment: true,
       redemption: true,
+      invitation: true,
       user: true,
-      subscription: true,
       setting: true,
     },
   });
@@ -123,10 +122,9 @@ export default function SettingsSidebarModulesAdmin(props) {
         enabled: true,
         channel: true,
         models: true,
-        deployment: true,
         redemption: true,
+        invitation: true,
         user: true,
-        subscription: true,
         setting: true,
       },
     };
@@ -192,10 +190,9 @@ export default function SettingsSidebarModulesAdmin(props) {
             enabled: true,
             channel: true,
             models: true,
-            deployment: true,
             redemption: true,
+            invitation: true,
             user: true,
-            subscription: true,
             setting: true,
           },
         };
@@ -256,21 +253,21 @@ export default function SettingsSidebarModulesAdmin(props) {
         { key: 'channel', title: t('渠道管理'), description: t('API渠道配置') },
         { key: 'models', title: t('模型管理'), description: t('AI模型配置') },
         {
-          key: 'deployment',
-          title: t('模型部署'),
-          description: t('模型部署管理'),
-        },
-        {
-          key: 'subscription',
-          title: t('订阅管理'),
-          description: t('订阅套餐管理'),
-        },
-        {
           key: 'redemption',
           title: t('兑换码管理'),
           description: t('兑换码生成管理'),
         },
+        {
+          key: 'invitation',
+          title: t('邀请码管理'),
+          description: t('邀请码生成管理'),
+        },
         { key: 'user', title: t('用户管理'), description: t('用户账户管理') },
+        {
+          key: 'archived-user',
+          title: t('归档用户'),
+          description: t('不活跃用户清理与恢复'),
+        },
         {
           key: 'setting',
           title: t('系统设置'),

@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useEffect, useState } from 'react';
 import { Card, Spin } from '@douyinfe/semi-ui';
 import SettingsChats from '../../pages/Setting/Chat/SettingsChats';
+import SettingsChatRoom from '../../pages/Setting/Chat/SettingsChatRoom';
 import { API, showError, toBoolean } from '../../helpers';
 
 const ChatsSetting = () => {
@@ -70,6 +71,10 @@ const ChatsSetting = () => {
   return (
     <>
       <Spin spinning={loading} size='large'>
+        {/* 聊天室设置 */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingsChatRoom />
+        </Card>
         {/* 聊天设置 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsChats options={inputs} refresh={onRefresh} />
