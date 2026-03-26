@@ -40,6 +40,7 @@ import {
   getModelCategories,
   showError,
 } from '../../../helpers';
+import { API } from '../../../helpers/api';
 import {
   IconTreeTriangleDown,
   IconCopy,
@@ -108,17 +109,17 @@ const renderGroupColumn = (text, t) => {
 };
 
 // Render token key column with show/hide and copy functionality
-const renderTokenKey = (text, record, showKeys, setShowKeys, copyText) => {
-  const fullKey = 'sk-' + record.key;
+const renderTokenKey = (text, record, showKeys, setShowKeys, copyText, t) => {
   const maskedKey =
     'sk-' + record.key.slice(0, 4) + '**********' + record.key.slice(-4);
+  const displayKey = 'sk-' + record.key;
   const revealed = !!showKeys[record.id];
 
   return (
     <div className='w-[200px]'>
       <Input
         readOnly
-        value={revealed ? fullKey : maskedKey}
+        value={revealed ? displayKey : maskedKey}
         size='small'
         suffix={
           <div className='flex items-center'>
@@ -133,21 +134,53 @@ const renderTokenKey = (text, record, showKeys, setShowKeys, copyText) => {
                 setShowKeys((prev) => ({ ...prev, [record.id]: !revealed }));
               }}
             />
-            <Button
-              theme='borderless'
-              size='small'
-              type='tertiary'
-              icon={<IconCopy />}
-              aria-label='copy token key'
-              onClick={async (e) => {
-                e.stopPropagation();
-                await copyText(fullKey);
-              }}
-            />
+            <CopyKeyButton record={record} copyText={copyText} t={t} />
           </div>
         }
       />
     </div>
+  );
+};
+
+// Separate component for copy button to support loading state via hooks
+const CopyKeyButton = ({ record, copyText, t }) => {
+  const [loading, setLoading] = React.useState(false);
+
+  const handleCopy = async (e) => {
+    e.stopPropagation();
+    setLoading(true);
+    try {
+      const res = await API.get(`/api/token/${record.id}/key`, {
+        skipErrorHandler: true,
+      });
+      const { success, message, data } = res.data;
+      if (success) {
+        await copyText(data.key);
+      } else {
+        showError(t(message || '获取密钥失败'));
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 403) {
+        showError(t('需要安全验证后才能复制密钥'));
+      } else {
+        showError(t('获取密钥失败'));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      theme='borderless'
+      size='small'
+      type='tertiary'
+      loading={loading}
+      icon={<IconCopy />}
+      aria-label='copy token key'
+      onClick={handleCopy}
+    />
   );
 };
 
@@ -461,7 +494,7 @@ export const getTokensColumns = ({
       title: t('密钥'),
       key: 'token_key',
       render: (text, record) =>
-        renderTokenKey(text, record, showKeys, setShowKeys, copyText),
+        renderTokenKey(text, record, showKeys, setShowKeys, copyText, t),
     },
     {
       title: t('可用模型'),

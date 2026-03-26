@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -55,7 +56,10 @@ func GetUsageLeaderboardByPeriod(period string, limit int) ([]UsageLeaderboardEn
 	var entries []UsageLeaderboardEntry
 	startTimestamp := getPeriodTimestamp(period)
 
-	query := LOG_DB.Table("logs").
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	query := LOG_DB.WithContext(ctx).Table("logs").
 		Select("username, COUNT(*) as request_count, SUM(quota) as used_quota").
 		Where("type = ?", LogTypeConsume).
 		Where("username != ''")
@@ -98,7 +102,7 @@ func GetUsageLeaderboardByPeriod(period string, limit int) ([]UsageLeaderboardEn
 		LinuxDOAvatar   string `gorm:"column:linux_do_avatar"`
 		LinuxDOLevel    int    `gorm:"column:linux_do_level"`
 	}
-	DB.Table("users").
+	DB.WithContext(ctx).Table("users").
 		Select("username, display_name, linux_do_username, linux_do_avatar, linux_do_level").
 		Where("username IN ?", usernames).
 		Find(&users)
@@ -144,8 +148,11 @@ func isLeaderboardHiddenUser(username string) bool {
 }
 
 func GetUserRankByPeriod(userId int, period string) (int, *UsageLeaderboardEntry, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	var user User
-	err := DB.Select("id, username, display_name, linux_do_username, linux_do_avatar, linux_do_level").
+	err := DB.WithContext(ctx).Select("id, username, display_name, linux_do_username, linux_do_avatar, linux_do_level").
 		Where("id = ?", userId).
 		First(&user).Error
 	if err != nil {
@@ -162,7 +169,7 @@ func GetUserRankByPeriod(userId int, period string) (int, *UsageLeaderboardEntry
 		RequestCount int64 `gorm:"column:request_count"`
 		UsedQuota    int64 `gorm:"column:used_quota"`
 	}
-	query := LOG_DB.Table("logs").
+	query := LOG_DB.WithContext(ctx).Table("logs").
 		Select("COUNT(*) as request_count, SUM(quota) as used_quota").
 		Where("type = ?", LogTypeConsume).
 		Where("username = ?", user.Username)
@@ -175,7 +182,7 @@ func GetUserRankByPeriod(userId int, period string) (int, *UsageLeaderboardEntry
 		return 0, nil, nil
 	}
 
-	rankQuery := LOG_DB.Table("logs").
+	rankQuery := LOG_DB.WithContext(ctx).Table("logs").
 		Select("username, SUM(quota) as total_quota").
 		Where("type = ?", LogTypeConsume).
 		Where("username != ''")
@@ -188,7 +195,7 @@ func GetUserRankByPeriod(userId int, period string) (int, *UsageLeaderboardEntry
 
 	var rank int64
 	subQuery := rankQuery.Group("username").Having("SUM(quota) > ?", userStats.UsedQuota)
-	LOG_DB.Table("(?) as t", subQuery).Count(&rank)
+	LOG_DB.WithContext(ctx).Table("(?) as t", subQuery).Count(&rank)
 
 	return int(rank + 1), &UsageLeaderboardEntry{
 		Username:        user.Username,
@@ -205,7 +212,10 @@ func GetModelLeaderboardByPeriod(period string, limit int) ([]ModelLeaderboardEn
 	var entries []ModelLeaderboardEntry
 	startTimestamp := getPeriodTimestamp(period)
 
-	query := LOG_DB.Table("logs").
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	query := LOG_DB.WithContext(ctx).Table("logs").
 		Select("model_name, COUNT(*) as request_count, SUM(prompt_tokens) + SUM(completion_tokens) as total_tokens, SUM(quota) as total_quota").
 		Where("type = ?", LogTypeConsume).
 		Where("model_name != ''")

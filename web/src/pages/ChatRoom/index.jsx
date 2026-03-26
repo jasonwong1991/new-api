@@ -42,7 +42,7 @@ const ChatRoomPage = () => {
 
   const me = userState?.user;
   const isLoggedIn = !!me?.username;
-  const chatRoomEnabled = statusState?.status?.chat_room_enabled !== false;
+  const chatRoomEnabled = statusState?.status?.chat_room_enabled === true;
   const enabled = chatRoomEnabled && isLoggedIn;
   const messageLimit = Number(
     statusState?.status?.chat_room_message_limit || 1000,
