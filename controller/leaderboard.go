@@ -139,59 +139,56 @@ func GetUsageLeaderboard(c *gin.Context) {
 			}
 		}
 	} else {
-		// Try to get from cache first for expensive periods (7d, 14d, 30d)
+		// Cache-only for period-based queries to prevent thundering herd on logs table.
+		// If cache is empty (cold start), return empty data; cache populates within 30s of boot.
 		cachedUsers, cached := model.GetCachedUserLeaderboardByPeriod(period)
-		var users []model.UsageLeaderboardEntry
-		var err error
-
 		if cached {
-			users = cachedUsers
-		} else {
-			users, err = model.GetUsageLeaderboardByPeriod(period, 100)
-			if err != nil {
-				c.JSON(http.StatusOK, gin.H{
-					"success": false,
-					"message": err.Error(),
-				})
-				return
-			}
-		}
-
-		for i, user := range users {
-			displayName := user.DisplayName
-			if displayName == "" {
-				displayName = "Anonymous"
-			}
-			entries = append(entries, LeaderboardEntry{
-				Rank:            i + 1,
-				DisplayName:     displayName,
-				LinuxDOUsername: user.LinuxDOUsername,
-				LinuxDOAvatar:   user.LinuxDOAvatar,
-				LinuxDOLevel:    user.LinuxDOLevel,
-				RequestCount:    int(user.RequestCount),
-				UsedQuota:       int(user.UsedQuota),
-				AmountUSD:       float64(user.UsedQuota) / common.QuotaPerUnit,
-			})
-		}
-
-		session := sessions.Default(c)
-		userId := session.Get("id")
-		if userId != nil {
-			rank, userData, err := model.GetUserRankByPeriod(userId.(int), period)
-			if err == nil && userData != nil {
-				displayName := userData.DisplayName
+			for i, user := range cachedUsers {
+				displayName := user.DisplayName
 				if displayName == "" {
 					displayName = "Anonymous"
 				}
-				myRankEntry = &LeaderboardEntry{
-					Rank:            rank,
+				entries = append(entries, LeaderboardEntry{
+					Rank:            i + 1,
 					DisplayName:     displayName,
-					LinuxDOUsername: userData.LinuxDOUsername,
-					LinuxDOAvatar:   userData.LinuxDOAvatar,
-					LinuxDOLevel:    userData.LinuxDOLevel,
-					RequestCount:    int(userData.RequestCount),
-					UsedQuota:       int(userData.UsedQuota),
-					AmountUSD:       float64(userData.UsedQuota) / common.QuotaPerUnit,
+					LinuxDOUsername: user.LinuxDOUsername,
+					LinuxDOAvatar:   user.LinuxDOAvatar,
+					LinuxDOLevel:    user.LinuxDOLevel,
+					RequestCount:    int(user.RequestCount),
+					UsedQuota:       int(user.UsedQuota),
+					AmountUSD:       float64(user.UsedQuota) / common.QuotaPerUnit,
+				})
+			}
+
+			// Calculate user rank from cached data instead of expensive per-request DB query
+			session := sessions.Default(c)
+			userId := session.Get("id")
+			if userId != nil {
+				// Lightweight lookup: only need username to match against cached entries
+				var currentUser struct {
+					Username string `gorm:"column:username"`
+				}
+				if err := model.DB.Table("users").Select("username").
+					Where("id = ?", userId.(int)).First(&currentUser).Error; err == nil {
+					for i, entry := range cachedUsers {
+						if entry.Username == currentUser.Username {
+							displayName := entry.DisplayName
+							if displayName == "" {
+								displayName = "Anonymous"
+							}
+							myRankEntry = &LeaderboardEntry{
+								Rank:            i + 1,
+								DisplayName:     displayName,
+								LinuxDOUsername: entry.LinuxDOUsername,
+								LinuxDOAvatar:   entry.LinuxDOAvatar,
+								LinuxDOLevel:    entry.LinuxDOLevel,
+								RequestCount:    int(entry.RequestCount),
+								UsedQuota:       int(entry.UsedQuota),
+								AmountUSD:       float64(entry.UsedQuota) / common.QuotaPerUnit,
+							}
+							break
+						}
+					}
 				}
 			}
 		}
@@ -233,12 +230,11 @@ func GetModelLeaderboard(c *gin.Context) {
 			models, err = model.GetModelUsageLeaderboard(100)
 		}
 	} else {
-		// Try to get from cache first for expensive periods (7d, 14d, 30d)
+		// Cache-only for period-based queries to prevent thundering herd on logs table.
+		// If cache is empty (cold start), return empty data; cache populates within 30s of boot.
 		cachedModels, cached := model.GetCachedModelLeaderboardByPeriod(period)
 		if cached {
 			models = cachedModels
-		} else {
-			models, err = model.GetModelLeaderboardByPeriod(period, 100)
 		}
 	}
 

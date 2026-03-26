@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -251,7 +252,10 @@ func getUsageLeaderboardByPeriodDirect(period string, limit int) ([]UsageLeaderb
 	var entries []UsageLeaderboardEntry
 	startTimestamp := getPeriodTimestamp(period)
 
-	query := LOG_DB.Table("logs").
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	query := LOG_DB.WithContext(ctx).Table("logs").
 		Select("username, COUNT(*) as request_count, SUM(quota) as used_quota").
 		Where("type = ?", LogTypeConsume).
 		Where("username != ''")
@@ -294,7 +298,7 @@ func getUsageLeaderboardByPeriodDirect(period string, limit int) ([]UsageLeaderb
 		LinuxDOAvatar   string `gorm:"column:linux_do_avatar"`
 		LinuxDOLevel    int    `gorm:"column:linux_do_level"`
 	}
-	DB.Table("users").
+	DB.WithContext(ctx).Table("users").
 		Select("username, display_name, linux_do_username, linux_do_avatar, linux_do_level").
 		Where("username IN ?", usernames).
 		Find(&users)
@@ -334,7 +338,10 @@ func getModelLeaderboardByPeriodDirect(period string, limit int) ([]ModelLeaderb
 	var entries []ModelLeaderboardEntry
 	startTimestamp := getPeriodTimestamp(period)
 
-	query := LOG_DB.Table("logs").
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	query := LOG_DB.WithContext(ctx).Table("logs").
 		Select("model_name, COUNT(*) as request_count, SUM(prompt_tokens) + SUM(completion_tokens) as total_tokens, SUM(quota) as total_quota").
 		Where("type = ?", LogTypeConsume).
 		Where("model_name != ''")
