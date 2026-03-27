@@ -31,6 +31,14 @@ type Redemption struct {
 	ExpiredTime  int64          `json:"expired_time" gorm:"bigint"` // 过期时间，0 表示不过期
 }
 
+// RedemptionUsage tracks which users have redeemed which codes
+type RedemptionUsage struct {
+	Id           int   `json:"id"`
+	RedemptionId int   `json:"redemption_id" gorm:"index:idx_redemption_user,unique"`
+	UserId       int   `json:"user_id" gorm:"index:idx_redemption_user,unique"`
+	CreatedTime  int64 `json:"created_time" gorm:"bigint"`
+}
+
 func GetAllRedemptions(startIdx int, num int) (redemptions []*Redemption, total int64, err error) {
 	// 开始事务
 	tx := DB.Begin()
@@ -146,6 +154,11 @@ func Redeem(key string, userId int) (quota int, err error) {
 		if redemption.RedeemCount > 0 && redemption.UsedCount >= redemption.RedeemCount {
 			return errors.New("该兑换码已达到最大兑换次数")
 		}
+		// Check if user already redeemed this code
+		var existingUsage RedemptionUsage
+		if tx.Where("redemption_id = ? AND user_id = ?", redemption.Id, userId).First(&existingUsage).Error == nil {
+			return errors.New("您已经兑换过该兑换码")
+		}
 		err = tx.Model(&User{}).Where("id = ?", userId).Update("quota", gorm.Expr("quota + ?", redemption.Quota)).Error
 		if err != nil {
 			return err
@@ -158,7 +171,16 @@ func Redeem(key string, userId int) (quota int, err error) {
 			redemption.Status = common.RedemptionCodeStatusUsed
 		}
 		err = tx.Save(redemption).Error
-		return err
+		if err != nil {
+			return err
+		}
+		// Record usage for per-user dedup
+		usage := RedemptionUsage{
+			RedemptionId: redemption.Id,
+			UserId:       userId,
+			CreatedTime:  common.GetTimestamp(),
+		}
+		return tx.Create(&usage).Error
 	})
 	if err != nil {
 		common.SysError("redemption failed: " + err.Error())
