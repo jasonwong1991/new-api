@@ -209,9 +209,12 @@ func (redemption *Redemption) Update() error {
 }
 
 func (redemption *Redemption) Delete() error {
-	var err error
-	err = DB.Delete(redemption).Error
-	return err
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("redemption_id = ?", redemption.Id).Delete(&RedemptionUsage{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(redemption).Error
+	})
 }
 
 func DeleteRedemptionById(id int) (err error) {
@@ -228,6 +231,21 @@ func DeleteRedemptionById(id int) (err error) {
 
 func DeleteInvalidRedemptions() (int64, error) {
 	now := common.GetTimestamp()
-	result := DB.Where("status IN ? OR (status = ? AND expired_time != 0 AND expired_time < ?)", []int{common.RedemptionCodeStatusUsed, common.RedemptionCodeStatusDisabled}, common.RedemptionCodeStatusEnabled, now).Delete(&Redemption{})
-	return result.RowsAffected, result.Error
+	condition := "status IN ? OR (status = ? AND expired_time != 0 AND expired_time < ?)"
+	conditionArgs := []interface{}{[]int{common.RedemptionCodeStatusUsed, common.RedemptionCodeStatusDisabled}, common.RedemptionCodeStatusEnabled, now}
+
+	var ids []int
+	if err := DB.Model(&Redemption{}).Where(condition, conditionArgs...).Pluck("id", &ids).Error; err != nil {
+		return 0, err
+	}
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	return int64(len(ids)), DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("redemption_id IN ?", ids).Delete(&RedemptionUsage{}).Error; err != nil {
+			return err
+		}
+		return tx.Where(condition, conditionArgs...).Delete(&Redemption{}).Error
+	})
 }
