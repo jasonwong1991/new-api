@@ -167,6 +167,11 @@ func Register(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgUserExists)
 		return
 	}
+	// Check if invitation code is required
+	if common.InvitationCodeRequired && user.InvitationCode == "" {
+		common.ApiError(c, errors.New("邀请码不能为空"))
+		return
+	}
 	// Validate and consume invitation code if provided
 	if user.InvitationCode != "" {
 		if err := model.RedeemInvitationCode(user.InvitationCode); err != nil {
