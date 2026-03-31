@@ -117,7 +117,19 @@ const RegisterForm = () => {
   );
 
   useEffect(() => {
-    const currentStatus = statusState?.status || status;
+    let currentStatus = statusState?.status;
+    if (!currentStatus) {
+      const savedStatus = localStorage.getItem('status');
+      if (savedStatus) {
+        try {
+          currentStatus = JSON.parse(savedStatus);
+        } catch (e) {
+          currentStatus = null;
+        }
+      }
+    }
+    if (!currentStatus) return;
+
     setShowEmailVerification(currentStatus.email_verification);
     setInvitationCodeRequired(currentStatus.invitation_code_required || false);
     if (currentStatus.turnstile_check) {
@@ -128,7 +140,7 @@ const RegisterForm = () => {
     // 从 status 获取用户协议和隐私政策的启用状态
     setHasUserAgreement(currentStatus.user_agreement_enabled || false);
     setHasPrivacyPolicy(currentStatus.privacy_policy_enabled || false);
-  }, [statusState?.status, status]);
+  }, [statusState?.status]);
 
   useEffect(() => {
     let countdownInterval = null;

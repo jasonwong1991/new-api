@@ -216,6 +216,21 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 		return nil, &OAuthRegistrationDisabledError{}
 	}
 
+	// Validate invitation code if required
+	if common.InvitationCodeRequired {
+		invCode, _ := session.Get("invitation_code").(string)
+		if invCode == "" {
+			return nil, fmt.Errorf("管理员开启了邀请注册，请先填写邀请码")
+		}
+		if err := model.CheckInvitationCode(invCode); err != nil {
+			return nil, fmt.Errorf("邀请码无效: %s", err.Error())
+		}
+		// Redeem invitation code first to prevent race condition
+		if err := model.RedeemInvitationCode(invCode); err != nil {
+			return nil, fmt.Errorf("邀请码核销失败: %s", err.Error())
+		}
+	}
+
 	// Set up new user
 	user.Username = provider.GetProviderPrefix() + strconv.Itoa(model.GetMaxUserId()+1)
 
@@ -270,9 +285,19 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 			return nil
 		})
 		if err != nil {
+			// Revert invitation code if user creation failed
+			if common.InvitationCodeRequired {
+				if invCode, ok := session.Get("invitation_code").(string); ok && invCode != "" {
+					go model.RevertInvitationCode(invCode)
+				}
+			}
 			return nil, err
 		}
 
+		// Track invitation code used
+		if invCode, ok := session.Get("invitation_code").(string); ok && invCode != "" {
+			user.InvitationCodeUsed = invCode
+		}
 		// Perform post-transaction tasks (logs, sidebar config, inviter rewards)
 		user.FinalizeOAuthUserCreation(inviterId)
 	} else {
@@ -299,9 +324,19 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 			return nil
 		})
 		if err != nil {
+			// Revert invitation code if user creation failed
+			if common.InvitationCodeRequired {
+				if invCode, ok := session.Get("invitation_code").(string); ok && invCode != "" {
+					go model.RevertInvitationCode(invCode)
+				}
+			}
 			return nil, err
 		}
 
+		// Track invitation code used
+		if invCode, ok := session.Get("invitation_code").(string); ok && invCode != "" {
+			user.InvitationCodeUsed = invCode
+		}
 		// Perform post-transaction tasks
 		user.FinalizeOAuthUserCreation(inviterId)
 	}
