@@ -138,7 +138,7 @@ func Register(c *gin.Context) {
 		return
 	}
 	var user model.User
-	err := json.NewDecoder(c.Request.Body).Decode(&user)
+	err := common.DecodeJson(c.Request.Body, &user)
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
@@ -182,11 +182,12 @@ func Register(c *gin.Context) {
 	affCode := user.AffCode // this code is the inviter's code, not the user's own code
 	inviterId, _ := model.GetUserIdByAffCode(affCode)
 	cleanUser := model.User{
-		Username:    user.Username,
-		Password:    user.Password,
-		DisplayName: user.Username,
-		InviterId:   inviterId,
-		Role:        common.RoleCommonUser, // 明确设置角色为普通用户
+		Username:           user.Username,
+		Password:           user.Password,
+		DisplayName:        user.Username,
+		InviterId:          inviterId,
+		Role:               common.RoleCommonUser, // 明确设置角色为普通用户
+		InvitationCodeUsed: user.InvitationCode,
 	}
 	if common.EmailVerificationEnabled {
 		cleanUser.Email = user.Email
