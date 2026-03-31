@@ -119,6 +119,7 @@ const RegisterForm = () => {
   useEffect(() => {
     const currentStatus = statusState?.status || status;
     setShowEmailVerification(currentStatus.email_verification);
+    setInvitationCodeRequired(currentStatus.invitation_code_required || false);
     if (currentStatus.turnstile_check) {
       setTurnstileEnabled(true);
       setTurnstileSiteKey(currentStatus.turnstile_site_key);
@@ -127,8 +128,6 @@ const RegisterForm = () => {
     // 从 status 获取用户协议和隐私政策的启用状态
     setHasUserAgreement(currentStatus.user_agreement_enabled || false);
     setHasPrivacyPolicy(currentStatus.privacy_policy_enabled || false);
-    // 从 status 获取邀请码是否必填
-    setInvitationCodeRequired(currentStatus.invitation_code_required || false);
   }, [statusState?.status, status]);
 
   useEffect(() => {
