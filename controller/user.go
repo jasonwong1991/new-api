@@ -167,6 +167,13 @@ func Register(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgUserExists)
 		return
 	}
+	// Validate and consume invitation code if provided
+	if user.InvitationCode != "" {
+		if err := model.RedeemInvitationCode(user.InvitationCode); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
 	affCode := user.AffCode // this code is the inviter's code, not the user's own code
 	inviterId, _ := model.GetUserIdByAffCode(affCode)
 	cleanUser := model.User{
@@ -180,6 +187,10 @@ func Register(c *gin.Context) {
 		cleanUser.Email = user.Email
 	}
 	if err := cleanUser.Insert(inviterId); err != nil {
+		// Rollback invitation code usage if user creation fails
+		if user.InvitationCode != "" {
+			model.RevertInvitationCode(user.InvitationCode)
+		}
 		common.ApiError(c, err)
 		return
 	}
