@@ -66,8 +66,10 @@ const RatioSetting = () => {
             // 如果后端返回的不是合法 JSON，直接展示
           }
         }
-        if (['DefaultUseAutoGroup', 'ExposeRatioEnabled'].includes(item.key)) {
+        if (['DefaultUseAutoGroup', 'ExposeRatioEnabled', 'DynamicRatioEnabled'].includes(item.key)) {
           newInputs[item.key] = toBoolean(item.value);
+        } else if (item.key === 'DynamicRatioMax') {
+          newInputs[item.key] = parseFloat(item.value) || 5;
         } else {
           newInputs[item.key] = item.value;
         }
