@@ -2316,6 +2316,19 @@
     "确认通过": "Confirm Approve",
     "确认拒绝": "Confirm Reject",
     "获取申诉列表失败": "Failed to get appeal list",
-    "提交时间": "Submit Time"
+    "提交时间": "Submit Time",
+    "24h Tokens": "24h Tokens",
+    "当前 RPM": "Current RPM",
+    "动态倍率": "Dynamic Rate",
+    "空闲": "Idle",
+    "正常": "Normal",
+    "繁忙": "Busy",
+    "高峰": "Peak",
+    "过去24小时的总Token用量": "Total token usage in the past 24 hours",
+    "当前每分钟请求数": "Current requests per minute",
+    "基于24h用量和RPM动态计算的倍率乘数，应用于分组倍率之上": "Dynamic rate multiplier calculated from 24h usage and RPM, applied on top of group ratio",
+    "万亿": "T",
+    "亿": "B",
+    "万": "W"
   }
 }

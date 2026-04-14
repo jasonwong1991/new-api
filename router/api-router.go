@@ -26,6 +26,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/leaderboard", controller.GetUsageLeaderboard)
 		apiRouter.GET("/leaderboard/models", controller.GetModelLeaderboard)
 		apiRouter.GET("/leaderboard/balance", controller.GetBalanceLeaderboard)
+		apiRouter.GET("/dynamic_ratio", controller.GetDynamicRatio)
 		apiRouter.GET("/ban-list", controller.GetBanList)
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)

@@ -32,6 +32,7 @@ import FloatingStoreButton from './components/FloatingStoreButton';
 import FloatingChatButton from './components/FloatingChatButton';
 import ArchivedUserCheck from './components/ArchivedUserCheck';
 import ScrollingNotice from './components/ScrollingNotice';
+import DynamicRatioCard from './components/DynamicRatioCard';
 
 const Home = () => {
   const { t } = useTranslation();
@@ -69,6 +70,7 @@ const Home = () => {
       />
 
       <div className='flex flex-col gap-6'>
+        <DynamicRatioCard />
         <ProjectCard />
 
         <ScrollingNotice />

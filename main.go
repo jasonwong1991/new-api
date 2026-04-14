@@ -23,6 +23,7 @@ import (
 	"github.com/QuantumNous/new-api/router"
 	"github.com/QuantumNous/new-api/service"
 	_ "github.com/QuantumNous/new-api/setting/performance_setting"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -104,6 +105,10 @@ func main() {
 		model.InitUserRankCache()
 		model.StartUserRankCacheScheduler()
 	}
+
+	// Dynamic ratio scheduler - wire up token count function and start
+	setting.SetRefreshTokenCountFunc(model.GetTokenUsed24h)
+	setting.StartDynamicRatioScheduler()
 
 	if os.Getenv("CHANNEL_UPDATE_FREQUENCY") != "" {
 		frequency, err := strconv.Atoi(os.Getenv("CHANNEL_UPDATE_FREQUENCY"))

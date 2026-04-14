@@ -6,6 +6,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -41,6 +42,13 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 		// normal group ratio
 		groupRatioInfo.GroupRatio = ratio_setting.GetGroupRatio(relayInfo.UsingGroup)
 	}
+
+	// Apply dynamic ratio multiplier (tokens_24h + RPM based)
+	dynamicRatio := setting.GetDynamicRatio()
+	groupRatioInfo.GroupRatio *= dynamicRatio
+
+	// Track request for RPM counting
+	setting.IncrementRequestCount()
 
 	return groupRatioInfo
 }
