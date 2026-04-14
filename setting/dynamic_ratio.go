@@ -17,11 +17,11 @@ const (
 	DynamicRatioRPMThreshold   float64 = 1000.0
 	DynamicRatioTokenWeight    float64 = 0.7
 	DynamicRatioRPMWeight      float64 = 0.3
-	DynamicRatioMax            float64 = 5.0
 	DynamicRatioMin            float64 = 1.0
 )
 
 var DynamicRatioEnabled = false
+var DynamicRatioMax float64 = 5.0
 
 type dynamicRatioCache struct {
 	mu          sync.RWMutex
@@ -54,6 +54,7 @@ type DynamicRatioInfo struct {
 	Tokens24h    int64   `json:"tokens_24h"`
 	CurrentRPM   int64   `json:"current_rpm"`
 	DynamicRatio float64 `json:"dynamic_ratio"`
+	MaxRatio     float64 `json:"max_ratio"`
 	Enabled      bool    `json:"enabled"`
 	UpdatedAt    int64   `json:"updated_at"`
 }
@@ -65,6 +66,7 @@ func GetDynamicRatioInfo() DynamicRatioInfo {
 		Tokens24h:    drCache.tokens24h,
 		CurrentRPM:   drCache.currentRPM,
 		DynamicRatio: drCache.ratio,
+		MaxRatio:     DynamicRatioMax,
 		Enabled:      DynamicRatioEnabled,
 		UpdatedAt:    drCache.lastUpdated.Unix(),
 	}

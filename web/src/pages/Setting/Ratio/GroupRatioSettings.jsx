@@ -39,6 +39,8 @@ export default function GroupRatioSettings(props) {
     'group_ratio_setting.group_special_usable_group': '',
     AutoGroups: '',
     DefaultUseAutoGroup: false,
+    DynamicRatioEnabled: false,
+    DynamicRatioMax: 5,
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -245,6 +247,35 @@ export default function GroupRatioSettings(props) {
                 },
               ]}
               onChange={(value) => setInputs({ ...inputs, AutoGroups: value })}
+            />
+          </Col>
+        </Row>
+        <Row gutter={16}>
+          <Col span={16}>
+            <Form.Switch
+              field={'DynamicRatioEnabled'}
+              label={t('启用动态倍率')}
+              extraText={t('开启后，分组倍率将根据平台24小时Token用量和当前RPM动态调整（最大5倍）。100亿tokens以下倍率为1，超出后按公式计算。')}
+              size='default'
+              checkedText='|'
+              uncheckedText='O'
+              onChange={(value) =>
+                setInputs({ ...inputs, DynamicRatioEnabled: value })
+              }
+            />
+          </Col>
+          <Col xs={24} sm={8}>
+            <Form.InputNumber
+              field={'DynamicRatioMax'}
+              label={t('动态倍率上限')}
+              extraText={t('动态倍率的最大值，默认为5')}
+              min={1}
+              max={100}
+              step={0.1}
+              precision={1}
+              onChange={(value) =>
+                setInputs({ ...inputs, DynamicRatioMax: value })
+              }
             />
           </Col>
         </Row>
