@@ -312,6 +312,7 @@ func updateOptionMap(key string, value string) (err error) {
 			setting.ModelRequestRateLimitEnabled = boolValue
 		case "DynamicRatioEnabled":
 			setting.DynamicRatioEnabled = boolValue
+			setting.TriggerDynamicRatioRefresh()
 		case "StopOnSensitiveEnabled":
 			setting.StopOnSensitiveEnabled = boolValue
 		case "SMTPSSLEnabled":
@@ -506,6 +507,7 @@ func updateOptionMap(key string, value string) (err error) {
 		common.ChannelDisableThreshold, _ = strconv.ParseFloat(value, 64)
 	case "DynamicRatioMax":
 		setting.DynamicRatioMax, _ = strconv.ParseFloat(value, 64)
+		setting.TriggerDynamicRatioRefresh()
 	case "QuotaPerUnit":
 		common.QuotaPerUnit, _ = strconv.ParseFloat(value, 64)
 	case "SensitiveWords":

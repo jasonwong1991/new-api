@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Button, Col, Form, Row, Spin } from '@douyinfe/semi-ui';
+import { Button, Col, Form, InputNumber, Row, Spin, Switch, Typography } from '@douyinfe/semi-ui';
 import {
   compareObjects,
   API,
@@ -252,31 +252,42 @@ export default function GroupRatioSettings(props) {
         </Row>
         <Row gutter={16}>
           <Col span={16}>
-            <Form.Switch
-              field={'DynamicRatioEnabled'}
-              label={t('启用动态倍率')}
-              extraText={t('开启后，分组倍率将根据平台24小时Token用量和当前RPM动态调整（最大5倍）。100亿tokens以下倍率为1，超出后按公式计算。')}
-              size='default'
-              checkedText='|'
-              uncheckedText='O'
-              onChange={(value) =>
-                setInputs({ ...inputs, DynamicRatioEnabled: value })
-              }
-            />
+            <div style={{ marginBottom: 8 }}>
+              <Typography.Text strong>{t('启用动态倍率')}</Typography.Text>
+              <div style={{ marginTop: 4, marginBottom: 8 }}>
+                <Switch
+                  checked={!!inputs.DynamicRatioEnabled}
+                  checkedText='|'
+                  uncheckedText='O'
+                  onChange={(value) =>
+                    setInputs({ ...inputs, DynamicRatioEnabled: value })
+                  }
+                />
+              </div>
+              <Typography.Text type='tertiary' size='small'>
+                {t('开启后，分组倍率将根据平台当日(0点起)Token用量和当前RPM动态调整。100亿tokens以下倍率为1，超出后按公式计算，最大值可通过下方配置。')}
+              </Typography.Text>
+            </div>
           </Col>
           <Col xs={24} sm={8}>
-            <Form.InputNumber
-              field={'DynamicRatioMax'}
-              label={t('动态倍率上限')}
-              extraText={t('动态倍率的最大值，默认为5')}
-              min={1}
-              max={100}
-              step={0.1}
-              precision={1}
-              onChange={(value) =>
-                setInputs({ ...inputs, DynamicRatioMax: value })
-              }
-            />
+            <div style={{ marginBottom: 8 }}>
+              <Typography.Text strong>{t('动态倍率上限')}</Typography.Text>
+              <div style={{ marginTop: 4, marginBottom: 8 }}>
+                <InputNumber
+                  value={inputs.DynamicRatioMax}
+                  min={1}
+                  max={100}
+                  step={0.1}
+                  precision={1}
+                  onChange={(value) =>
+                    setInputs({ ...inputs, DynamicRatioMax: value })
+                  }
+                />
+              </div>
+              <Typography.Text type='tertiary' size='small'>
+                {t('动态倍率的最大值，默认为5')}
+              </Typography.Text>
+            </div>
           </Col>
         </Row>
         <Row gutter={16}>

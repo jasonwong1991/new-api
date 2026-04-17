@@ -158,3 +158,10 @@ func updateDynamicRatioCache() {
 			drCache.tokens24h, rpm, drCache.ratio))
 	}
 }
+
+// TriggerDynamicRatioRefresh forces immediate recalculation of the cached ratio.
+// Called after admin config changes (DynamicRatioEnabled, DynamicRatioMax) so
+// configuration takes effect immediately instead of waiting for the 60s scheduler tick.
+func TriggerDynamicRatioRefresh() {
+	updateDynamicRatioCache()
+}

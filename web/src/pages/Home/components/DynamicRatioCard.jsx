@@ -77,10 +77,10 @@ const DynamicRatioCard = () => {
     >
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-6 flex-wrap">
-          <Tooltip content={t('过去24小时的总Token用量')}>
+          <Tooltip content={t('今日(0点起)的总Token用量')}>
             <div className="flex items-center gap-2">
               <Typography.Text type="secondary" size="small">
-                {t('24h Tokens')}
+                {t('今日 Tokens')}
               </Typography.Text>
               <Typography.Text strong>
                 {formatTokens(data.tokens_24h)}
@@ -98,7 +98,7 @@ const DynamicRatioCard = () => {
         </div>
         <Tooltip
           content={t(
-            '基于24h用量和RPM动态计算的倍率乘数，应用于分组倍率之上'
+            '基于今日用量和RPM动态计算的倍率乘数，应用于分组倍率之上'
           )}
         >
           <div className="flex items-center gap-2">
