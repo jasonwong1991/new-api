@@ -184,6 +184,8 @@ twofa.code_invalid: "Verification code or backup code is incorrect"
 # Rate limit messages
 rate_limit.reached: "You have reached the request limit: maximum {{.Max}} requests in {{.Minutes}} minutes"
 rate_limit.total_reached: "You have reached the total request limit: maximum {{.Max}} requests in {{.Minutes}} minutes, including failed attempts"
+quota_limit.daily_reached: "Daily quota limit reached: used {{.Used}}, limit {{.Limit}}. Please try again tomorrow."
+quota_limit.weekly_reached: "Weekly quota limit reached: used {{.Used}}, limit {{.Limit}}. Please try again next week."
 
 # Setting messages
 setting.invalid_type: "Invalid warning type"

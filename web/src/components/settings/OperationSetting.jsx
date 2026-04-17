@@ -26,6 +26,7 @@ import SettingsSensitiveWords from '../../pages/Setting/Operation/SettingsSensit
 import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
+import SettingsQuotaLimit from '../../pages/Setting/Operation/SettingsQuotaLimit';
 import SettingsLeaderboard from '../../pages/Setting/Operation/SettingsLeaderboard';
 import SettingsAppeals from '../../pages/Setting/Operation/SettingsAppeals';
 import { API, showError, toBoolean } from '../../helpers';
@@ -38,6 +39,13 @@ const OperationSetting = () => {
     QuotaForInviter: 0,
     QuotaForInvitee: 0,
     'quota_setting.enable_free_model_pre_consume': true,
+
+    /* 额度天/周限额 */
+    QuotaLimitEnabled: false,
+    QuotaDailyLimit: 0,
+    QuotaWeeklyLimit: 0,
+    QuotaLimitWhitelistUsers: '',
+    QuotaLimitWhitelistGroups: '',
 
     /* 通用设置 */
     TopUpLink: '',
@@ -153,6 +161,10 @@ const OperationSetting = () => {
         {/* 额度设置 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsCreditLimit options={inputs} refresh={onRefresh} />
+        </Card>
+        {/* 额度天/周限额 */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingsQuotaLimit options={inputs} refresh={onRefresh} />
         </Card>
         {/* 榜单设置 */}
         <Card style={{ marginTop: '10px' }}>

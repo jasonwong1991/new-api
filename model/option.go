@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/performance_setting"
+	"github.com/QuantumNous/new-api/setting/quota_limit"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 )
@@ -55,6 +56,11 @@ func InitOptionMap() {
 	common.OptionMap["DataExportEnabled"] = strconv.FormatBool(common.DataExportEnabled)
 	common.OptionMap["DynamicRatioEnabled"] = strconv.FormatBool(setting.DynamicRatioEnabled)
 	common.OptionMap["DynamicRatioMax"] = strconv.FormatFloat(setting.DynamicRatioMax, 'f', -1, 64)
+	common.OptionMap["QuotaLimitEnabled"] = strconv.FormatBool(quota_limit.IsEnabled())
+	common.OptionMap["QuotaDailyLimit"] = strconv.FormatInt(quota_limit.GetDailyLimit(), 10)
+	common.OptionMap["QuotaWeeklyLimit"] = strconv.FormatInt(quota_limit.GetWeeklyLimit(), 10)
+	common.OptionMap["QuotaLimitWhitelistUsers"] = quota_limit.GetWhitelistUsersRaw()
+	common.OptionMap["QuotaLimitWhitelistGroups"] = quota_limit.GetWhitelistGroupsRaw()
 	common.OptionMap["ChannelDisableThreshold"] = strconv.FormatFloat(common.ChannelDisableThreshold, 'f', -1, 64)
 	common.OptionMap["EmailDomainRestrictionEnabled"] = strconv.FormatBool(common.EmailDomainRestrictionEnabled)
 	common.OptionMap["EmailAliasRestrictionEnabled"] = strconv.FormatBool(common.EmailAliasRestrictionEnabled)
@@ -313,6 +319,9 @@ func updateOptionMap(key string, value string) (err error) {
 		case "DynamicRatioEnabled":
 			setting.DynamicRatioEnabled = boolValue
 			setting.TriggerDynamicRatioRefresh()
+		case "QuotaLimitEnabled":
+			quota_limit.SetEnabled(boolValue)
+			InvalidateAllQuotaUsageCache()
 		case "StopOnSensitiveEnabled":
 			setting.StopOnSensitiveEnabled = boolValue
 		case "SMTPSSLEnabled":
@@ -508,6 +517,18 @@ func updateOptionMap(key string, value string) (err error) {
 	case "DynamicRatioMax":
 		setting.DynamicRatioMax, _ = strconv.ParseFloat(value, 64)
 		setting.TriggerDynamicRatioRefresh()
+	case "QuotaDailyLimit":
+		n, _ := strconv.ParseInt(value, 10, 64)
+		quota_limit.SetDailyLimit(n)
+		InvalidateAllQuotaUsageCache()
+	case "QuotaWeeklyLimit":
+		n, _ := strconv.ParseInt(value, 10, 64)
+		quota_limit.SetWeeklyLimit(n)
+		InvalidateAllQuotaUsageCache()
+	case "QuotaLimitWhitelistUsers":
+		quota_limit.SetWhitelistUsers(value)
+	case "QuotaLimitWhitelistGroups":
+		quota_limit.SetWhitelistGroups(value)
 	case "QuotaPerUnit":
 		common.QuotaPerUnit, _ = strconv.ParseFloat(value, 64)
 	case "SensitiveWords":
