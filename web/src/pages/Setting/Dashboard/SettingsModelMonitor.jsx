@@ -85,7 +85,7 @@ const SettingsModelMonitor = () => {
 
   const loadModels = async () => {
     try {
-      const res = await API.get('/api/models');
+      const res = await API.get('/api/channel/models_enabled');
       const { success, data } = res.data || {};
       if (success && Array.isArray(data)) {
         setAllModels(data);

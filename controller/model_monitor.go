@@ -194,12 +194,23 @@ func GetModelMonitorModels(c *gin.Context) {
 		models = models[:cfg.Limit]
 	}
 
+	// 时间窗口 -> 粒度：管理员选择后所有用户强制按此粒度查看
+	windowToGranularity := map[string]string{
+		"1h":  "minute",
+		"24h": "hour",
+		"7d":  "day",
+	}
+	granularity := windowToGranularity[cfg.DefaultWindow]
+	if granularity == "" {
+		granularity = "hour"
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
 			"models":              models,
 			"refresh_sec":         cfg.RefreshSec,
-			"default_granularity": "hour",
+			"default_granularity": granularity,
 			"default_window":      cfg.DefaultWindow,
 		},
 	})
@@ -321,5 +332,7 @@ func UpdateModelMonitorConfigAPI(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
 		return
 	}
+	// 让后端缓存立即失效，避免用户继续看到旧配置下的数据
+	service.InvalidateModelMonitorCache()
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": cfg})
 }

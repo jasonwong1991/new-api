@@ -22,8 +22,6 @@ import {
   Card,
   Typography,
   Space,
-  Tabs,
-  TabPane,
   Input,
   Empty,
   Spin,
@@ -37,22 +35,14 @@ import {
   MonitorDataProvider,
   useMonitorStatus,
 } from './MonitorDataContext';
-import { STATUS_COLORS } from './StatusBars';
 
 const { Text } = Typography;
 
-const GRANULARITY_OPTIONS = [
-  { key: 'minute', label: '每分钟', desc: '最近 60 分钟' },
-  { key: 'hour', label: '每小时', desc: '最近 24 小时' },
-  { key: 'day', label: '每天', desc: '最近 30 天' },
-];
-
-const LEGEND_ITEMS = [
-  { color: STATUS_COLORS.up, label: '正常' },
-  { color: STATUS_COLORS.degraded, label: '降级' },
-  { color: STATUS_COLORS.down, label: '故障' },
-  { color: STATUS_COLORS.no_data, label: '无数据' },
-];
+const GRANULARITY_LABEL = {
+  minute: { title: '每分钟', desc: '最近 60 分钟' },
+  hour: { title: '每小时', desc: '最近 24 小时' },
+  day: { title: '每天', desc: '最近 30 天' },
+};
 
 const MonitorStatusBar = () => {
   const { t } = useTranslation();
@@ -87,7 +77,7 @@ const MonitorList = ({ models, granularity }) => {
     return <Empty description={t('暂无模型数据')} className='py-10' />;
   }
   return (
-    <div>
+    <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
       {models.map((m) => (
         <ModelStatusRow
           key={`${m}-${granularity}`}
@@ -115,6 +105,9 @@ const ModelMonitorPage = () => {
       if (success) {
         setModels(data?.models || []);
         if (data?.refresh_sec) setRefreshSec(data.refresh_sec);
+        if (data?.default_granularity) {
+          setGranularity(data.default_granularity);
+        }
       } else {
         showError(message || t('加载失败'));
       }
@@ -135,6 +128,8 @@ const ModelMonitorPage = () => {
     return models.filter((m) => (m || '').toLowerCase().includes(kw));
   }, [models, keyword]);
 
+  const granularityInfo = GRANULARITY_LABEL[granularity] || GRANULARITY_LABEL.hour;
+
   return (
     <div className='p-4'>
       <Card
@@ -145,7 +140,7 @@ const ModelMonitorPage = () => {
               <Activity size={16} />
               <span>{t('模型监控')}</span>
               <Text type='tertiary' className='ml-2 text-xs'>
-                {t('共享数据源 · 服务端缓存')}
+                {t(granularityInfo.title)} · {t(granularityInfo.desc)}
               </Text>
             </div>
             <Space>
@@ -166,41 +161,8 @@ const ModelMonitorPage = () => {
           granularity={granularity}
           refreshSec={refreshSec}
         >
-          <div className='flex items-center justify-between flex-wrap gap-2 mb-2'>
-            <Tabs
-              type='line'
-              activeKey={granularity}
-              onChange={setGranularity}
-              className='flex-1'
-            >
-              {GRANULARITY_OPTIONS.map((o) => (
-                <TabPane
-                  key={o.key}
-                  itemKey={o.key}
-                  tab={
-                    <span>
-                      {t(o.label)}
-                      <Text type='tertiary' className='ml-2 text-xs'>
-                        · {t(o.desc)}
-                      </Text>
-                    </span>
-                  }
-                />
-              ))}
-            </Tabs>
+          <div className='flex items-center justify-end mb-3'>
             <MonitorStatusBar />
-          </div>
-
-          <div className='flex items-center gap-4 mb-3 text-xs text-[var(--semi-color-text-2)]'>
-            {LEGEND_ITEMS.map((it) => (
-              <div key={it.label} className='flex items-center gap-1'>
-                <span
-                  className='inline-block w-3 h-3'
-                  style={{ backgroundColor: it.color, borderRadius: 2 }}
-                />
-                <span>{t(it.label)}</span>
-              </div>
-            ))}
           </div>
 
           {loadingList ? (
