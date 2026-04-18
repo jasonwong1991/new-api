@@ -22,10 +22,12 @@ package controller
 import (
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/console_setting"
 
 	"github.com/gin-gonic/gin"
@@ -46,12 +48,12 @@ type modelMonitorMetric struct {
 
 type modelMonitorAggRow struct {
 	ModelName        string  `gorm:"column:model_name"`
-	RequestCount    int64   `gorm:"column:request_count"`
-	ErrorCount      int64   `gorm:"column:error_count"`
-	AvgUseTime      float64 `gorm:"column:avg_use_time"`
-	PromptTokens    int64   `gorm:"column:prompt_tokens"`
-	CompletionTokens int64  `gorm:"column:completion_tokens"`
-	QuotaSum        int64   `gorm:"column:quota_sum"`
+	RequestCount     int64   `gorm:"column:request_count"`
+	ErrorCount       int64   `gorm:"column:error_count"`
+	AvgUseTime       float64 `gorm:"column:avg_use_time"`
+	PromptTokens     int64   `gorm:"column:prompt_tokens"`
+	CompletionTokens int64   `gorm:"column:completion_tokens"`
+	QuotaSum         int64   `gorm:"column:quota_sum"`
 }
 
 func windowSeconds(window string) int64 {
@@ -150,6 +152,114 @@ func GetModelMonitorMetrics(c *gin.Context) {
 			"sort_by":      cfg.SortBy,
 			"sort_order":   cfg.SortOrder,
 			"refresh_sec":  cfg.RefreshSec,
+		},
+	})
+}
+
+// GetModelMonitorModels 轻量 endpoint：仅返回受监控的模型列表（供前端快速构建行）
+func GetModelMonitorModels(c *gin.Context) {
+	cfg := console_setting.GetModelMonitorConfig()
+
+	models := make([]string, 0)
+	if len(cfg.Models) > 0 {
+		// 显式白名单
+		for _, m := range cfg.Models {
+			if m != "" {
+				models = append(models, m)
+			}
+		}
+	} else {
+		// 无白名单：使用最近 7 天内有日志的模型作为默认清单
+		cutoff := time.Now().Unix() - 7*86400
+		var rows []struct {
+			ModelName string `gorm:"column:model_name"`
+			Total     int64  `gorm:"column:total"`
+		}
+		err := model.LOG_DB.Table("logs").
+			Select("model_name, COUNT(*) AS total").
+			Where("created_at >= ? AND type IN (?, ?) AND model_name <> ''", cutoff, 2, 5).
+			Group("model_name").
+			Order("total DESC").
+			Scan(&rows).Error
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+		for _, r := range rows {
+			models = append(models, r.ModelName)
+		}
+	}
+
+	if cfg.Limit > 0 && len(models) > cfg.Limit {
+		models = models[:cfg.Limit]
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"models":              models,
+			"refresh_sec":         cfg.RefreshSec,
+			"default_granularity": "hour",
+			"default_window":      cfg.DefaultWindow,
+		},
+	})
+}
+
+// GetModelMonitorBars 按时间粒度返回一个或多个模型的状态桶
+// 支持：?model=X  或  ?models=X,Y,Z
+func GetModelMonitorBars(c *gin.Context) {
+	granularity := c.Query("granularity")
+	if granularity != "minute" && granularity != "hour" && granularity != "day" {
+		granularity = "hour"
+	}
+
+	// 收集请求的模型列表
+	reqModels := make([]string, 0)
+	if raw := c.Query("models"); raw != "" {
+		for _, p := range strings.Split(raw, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				reqModels = append(reqModels, p)
+			}
+		}
+	}
+	if single := strings.TrimSpace(c.Query("model")); single != "" {
+		reqModels = append(reqModels, single)
+	}
+	if len(reqModels) == 0 {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "缺少 model/models 参数"})
+		return
+	}
+
+	// 上限防御：单次最多 100 个模型，超过拒绝
+	if len(reqModels) > 100 {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "一次查询模型数不能超过 100"})
+		return
+	}
+
+	results, err := service.GetModelMonitorResultsBatch(reqModels, granularity)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	// 单模型兼容格式（保留旧 ?model= 的 data 形状）
+	if len(reqModels) == 1 && c.Query("models") == "" {
+		if r, ok := results[reqModels[0]]; ok {
+			c.JSON(http.StatusOK, gin.H{"success": true, "data": r})
+			return
+		}
+	}
+
+	bucketSize, bucketCount := service.GranularitySpec(granularity)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"granularity":  granularity,
+			"bucket_size":  bucketSize,
+			"bucket_count": bucketCount,
+			"results":      results,
+			"generated_at": time.Now().Unix(),
 		},
 	})
 }

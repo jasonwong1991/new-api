@@ -17,230 +17,198 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Card,
-  Table,
-  Select,
-  Button,
-  Tag,
   Typography,
   Space,
+  Tabs,
+  TabPane,
+  Input,
+  Empty,
   Spin,
+  Button,
 } from '@douyinfe/semi-ui';
-import { Activity, RefreshCw } from 'lucide-react';
+import { Activity, Search, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { API, showError } from '../../helpers';
+import ModelStatusRow from './ModelStatusRow';
+import {
+  MonitorDataProvider,
+  useMonitorStatus,
+} from './MonitorDataContext';
 
 const { Text } = Typography;
 
-const WINDOW_OPTIONS = [
-  { value: '1h', label: '最近1小时' },
-  { value: '24h', label: '最近24小时' },
-  { value: '7d', label: '最近7天' },
+const GRANULARITY_OPTIONS = [
+  { key: 'minute', label: '每分钟', desc: '最近 60 分钟' },
+  { key: 'hour', label: '每小时', desc: '最近 24 小时' },
+  { key: 'day', label: '每天', desc: '最近 30 天' },
 ];
 
-const formatNumber = (n, digits = 0) => {
-  if (n === null || n === undefined || Number.isNaN(n)) return '-';
-  return Number(n).toFixed(digits);
+const LEGEND_ITEMS = [
+  { color: 'bg-emerald-500', label: '正常' },
+  { color: 'bg-amber-400', label: '降级' },
+  { color: 'bg-rose-500', label: '故障' },
+  { color: 'bg-zinc-700/40', label: '无数据' },
+];
+
+const MonitorStatusBar = () => {
+  const { t } = useTranslation();
+  const { loading, generatedAt, reload } = useMonitorStatus();
+  const generatedAtText = generatedAt
+    ? new Date(generatedAt * 1000).toLocaleTimeString()
+    : '';
+  return (
+    <div className='flex items-center gap-3 text-xs text-[var(--semi-color-text-2)]'>
+      {loading && <Spin size='small' />}
+      {generatedAtText && (
+        <span>
+          {t('数据时间')}: {generatedAtText}
+        </span>
+      )}
+      <Button
+        icon={<RefreshCw size={12} />}
+        size='small'
+        theme='borderless'
+        type='tertiary'
+        onClick={reload}
+      >
+        {t('刷新')}
+      </Button>
+    </div>
+  );
 };
 
-const renderSuccessRate = (rate, t) => {
-  if (rate === null || rate === undefined || Number.isNaN(rate)) {
-    return <Tag color='grey'>-</Tag>;
+const MonitorList = ({ models, granularity }) => {
+  const { t } = useTranslation();
+  if (!models || models.length === 0) {
+    return <Empty description={t('暂无模型数据')} className='py-10' />;
   }
-  const pct = (rate * 100).toFixed(2) + '%';
-  let color = 'red';
-  if (rate >= 0.99) color = 'green';
-  else if (rate >= 0.95) color = 'orange';
-  return <Tag color={color}>{pct}</Tag>;
+  return (
+    <div>
+      {models.map((m) => (
+        <ModelStatusRow
+          key={`${m}-${granularity}`}
+          modelName={m}
+          granularity={granularity}
+        />
+      ))}
+    </div>
+  );
 };
 
 const ModelMonitorPage = () => {
   const { t } = useTranslation();
-  const [loading, setLoading] = useState(false);
-  const [window, setWindow] = useState('24h');
   const [models, setModels] = useState([]);
-  const [generatedAt, setGeneratedAt] = useState(null);
+  const [granularity, setGranularity] = useState('hour');
   const [refreshSec, setRefreshSec] = useState(30);
-  const timerRef = useRef(null);
+  const [loadingList, setLoadingList] = useState(false);
+  const [keyword, setKeyword] = useState('');
 
-  const loadConfig = useCallback(async () => {
+  const loadModels = useCallback(async () => {
+    setLoadingList(true);
     try {
-      const res = await API.get('/api/model_monitor/config');
-      const { success, data } = res.data || {};
-      if (success && data) {
-        if (data.default_window) setWindow(data.default_window);
-        if (data.refresh_sec) setRefreshSec(data.refresh_sec);
+      const res = await API.get('/api/model_monitor/models');
+      const { success, message, data } = res.data || {};
+      if (success) {
+        setModels(data?.models || []);
+        if (data?.refresh_sec) setRefreshSec(data.refresh_sec);
+      } else {
+        showError(message || t('加载失败'));
       }
     } catch (e) {
-      // silent
+      showError(e.message);
+    } finally {
+      setLoadingList(false);
     }
-  }, []);
-
-  const loadMetrics = useCallback(
-    async (w) => {
-      const q = w || window;
-      setLoading(true);
-      try {
-        const res = await API.get(`/api/model_monitor/metrics?window=${q}`);
-        const { success, message, data } = res.data || {};
-        if (success) {
-          setModels(data?.models || []);
-          setGeneratedAt(data?.generated_at || null);
-        } else {
-          showError(message || t('加载失败'));
-        }
-      } catch (e) {
-        showError(e.message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [window, t],
-  );
+  }, [t]);
 
   useEffect(() => {
-    (async () => {
-      await loadConfig();
-    })();
-  }, [loadConfig]);
+    loadModels();
+  }, [loadModels]);
 
-  useEffect(() => {
-    loadMetrics(window);
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (refreshSec && refreshSec >= 5) {
-      timerRef.current = setInterval(() => {
-        loadMetrics(window);
-      }, refreshSec * 1000);
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [window, refreshSec, loadMetrics]);
-
-  const columns = [
-    {
-      title: t('模型'),
-      dataIndex: 'model_name',
-      render: (v) => <Text strong>{v || '-'}</Text>,
-      sorter: (a, b) => (a.model_name || '').localeCompare(b.model_name || ''),
-    },
-    {
-      title: t('请求数'),
-      dataIndex: 'request_count',
-      align: 'right',
-      sorter: (a, b) => a.request_count - b.request_count,
-    },
-    {
-      title: t('错误数'),
-      dataIndex: 'error_count',
-      align: 'right',
-      sorter: (a, b) => a.error_count - b.error_count,
-    },
-    {
-      title: t('成功率'),
-      dataIndex: 'success_rate',
-      align: 'center',
-      render: (v) => renderSuccessRate(v, t),
-      sorter: (a, b) => a.success_rate - b.success_rate,
-    },
-    {
-      title: t('平均延迟(ms)'),
-      dataIndex: 'avg_latency_ms',
-      align: 'right',
-      render: (v) => formatNumber(v, 2),
-      sorter: (a, b) => a.avg_latency_ms - b.avg_latency_ms,
-    },
-    {
-      title: 'RPM',
-      dataIndex: 'rpm',
-      align: 'right',
-      render: (v) => formatNumber(v, 3),
-      sorter: (a, b) => a.rpm - b.rpm,
-    },
-    {
-      title: 'Prompt Tokens',
-      dataIndex: 'prompt_tokens',
-      align: 'right',
-      sorter: (a, b) => a.prompt_tokens - b.prompt_tokens,
-    },
-    {
-      title: 'Completion Tokens',
-      dataIndex: 'completion_tokens',
-      align: 'right',
-      sorter: (a, b) => a.completion_tokens - b.completion_tokens,
-    },
-    {
-      title: t('总Tokens'),
-      dataIndex: 'total_tokens',
-      align: 'right',
-      sorter: (a, b) => a.total_tokens - b.total_tokens,
-    },
-    {
-      title: t('消耗额度'),
-      dataIndex: 'quota',
-      align: 'right',
-      sorter: (a, b) => a.quota - b.quota,
-    },
-  ];
-
-  const generatedAtText =
-    generatedAt && new Date(generatedAt * 1000).toLocaleString();
+  const filteredModels = useMemo(() => {
+    const kw = keyword.trim().toLowerCase();
+    if (!kw) return models;
+    return models.filter((m) => (m || '').toLowerCase().includes(kw));
+  }, [models, keyword]);
 
   return (
     <div className='p-4'>
       <Card
         className='shadow-sm !rounded-2xl'
         title={
-          <div className='flex items-center justify-between w-full gap-2'>
+          <div className='flex flex-col md:flex-row md:items-center md:justify-between w-full gap-3'>
             <div className='flex items-center gap-2'>
               <Activity size={16} />
               <span>{t('模型监控')}</span>
+              <Text type='tertiary' className='ml-2 text-xs'>
+                {t('共享数据源 · 服务端缓存')}
+              </Text>
             </div>
             <Space>
-              <Select
-                value={window}
-                onChange={setWindow}
-                style={{ width: 160 }}
-                optionList={WINDOW_OPTIONS.map((o) => ({
-                  value: o.value,
-                  label: t(o.label),
-                }))}
+              <Input
+                prefix={<Search size={14} />}
+                placeholder={t('搜索模型')}
+                value={keyword}
+                onChange={setKeyword}
+                showClear
+                style={{ width: 220 }}
               />
-              <Button
-                icon={<RefreshCw size={14} />}
-                onClick={() => loadMetrics(window)}
-                loading={loading}
-                theme='borderless'
-                type='tertiary'
-              >
-                {t('刷新')}
-              </Button>
             </Space>
           </div>
         }
       >
-        <Spin spinning={loading}>
-          <Table
-            dataSource={models}
-            columns={columns}
-            rowKey='model_name'
-            pagination={{
-              pageSize: 20,
-              showSizeChanger: true,
-              pageSizeOptions: ['10', '20', '50', '100'],
-            }}
-            size='middle'
-            scroll={{ x: 'max-content' }}
-          />
-        </Spin>
-        {generatedAtText && (
-          <div className='mt-2 text-xs text-gray-500'>
-            {t('数据生成时间')}: {generatedAtText}
-            {refreshSec ? ` · ${t('自动刷新')} ${refreshSec}s` : ''}
+        <MonitorDataProvider
+          models={filteredModels}
+          granularity={granularity}
+          refreshSec={refreshSec}
+        >
+          <div className='flex items-center justify-between flex-wrap gap-2 mb-2'>
+            <Tabs
+              type='line'
+              activeKey={granularity}
+              onChange={setGranularity}
+              className='flex-1'
+            >
+              {GRANULARITY_OPTIONS.map((o) => (
+                <TabPane
+                  key={o.key}
+                  itemKey={o.key}
+                  tab={
+                    <span>
+                      {t(o.label)}
+                      <Text type='tertiary' className='ml-2 text-xs'>
+                        · {t(o.desc)}
+                      </Text>
+                    </span>
+                  }
+                />
+              ))}
+            </Tabs>
+            <MonitorStatusBar />
           </div>
-        )}
+
+          <div className='flex items-center gap-4 mb-3 text-xs text-[var(--semi-color-text-2)]'>
+            {LEGEND_ITEMS.map((it) => (
+              <div key={it.label} className='flex items-center gap-1'>
+                <span
+                  className={`inline-block w-3 h-3 rounded-[2px] ${it.color}`}
+                />
+                <span>{t(it.label)}</span>
+              </div>
+            ))}
+          </div>
+
+          {loadingList ? (
+            <div className='flex justify-center py-10'>
+              <Spin />
+            </div>
+          ) : (
+            <MonitorList models={filteredModels} granularity={granularity} />
+          )}
+        </MonitorDataProvider>
       </Card>
     </div>
   );

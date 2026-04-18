@@ -312,6 +312,8 @@ func SetApiRouter(router *gin.Engine) {
 		modelMonitorRoute := apiRouter.Group("/model_monitor")
 		{
 			modelMonitorRoute.GET("/metrics", middleware.UserAuth(), controller.GetModelMonitorMetrics)
+			modelMonitorRoute.GET("/models", middleware.UserAuth(), controller.GetModelMonitorModels)
+			modelMonitorRoute.GET("/bars", middleware.UserAuth(), controller.GetModelMonitorBars)
 			modelMonitorRoute.GET("/config", middleware.UserAuth(), controller.GetModelMonitorConfigAPI)
 			modelMonitorRoute.PUT("/config", middleware.RootAuth(), controller.UpdateModelMonitorConfigAPI)
 		}
