@@ -75,7 +75,7 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
       {
         text: t('模型监控'),
         itemKey: 'about',
-        to: '/about',
+        to: '/console/model-monitor',
       },
     ];
 
