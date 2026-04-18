@@ -134,6 +134,7 @@ const ModelMonitorPage = () => {
     <div className='p-4'>
       <Card
         className='shadow-sm !rounded-2xl'
+        style={{ marginTop: '50px' }}
         title={
           <div className='flex flex-col md:flex-row md:items-center md:justify-between w-full gap-3'>
             <div className='flex items-center gap-2'>
