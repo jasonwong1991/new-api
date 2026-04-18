@@ -296,6 +296,15 @@ func UpdateOption(c *gin.Context) {
 			})
 			return
 		}
+	case "console_setting.model_monitor":
+		err = console_setting.ValidateModelMonitorJSON(option.Value.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
 	}
 	err = model.UpdateOption(option.Key, option.Value.(string))
 	if err != nil {

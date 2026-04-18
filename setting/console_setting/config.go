@@ -11,6 +11,7 @@ type ConsoleSetting struct {
 	UptimeKumaEnabled    bool   `json:"uptime_kuma_enabled"`   // 是否启用 Uptime Kuma 面板
 	AnnouncementsEnabled bool   `json:"announcements_enabled"` // 是否启用系统公告面板
 	FAQEnabled           bool   `json:"faq_enabled"`           // 是否启用常见问答面板
+	ModelMonitor         string `json:"model_monitor"`         // 模型监控配置 (JSON 字符串)
 }
 
 // 默认配置
@@ -23,6 +24,7 @@ var defaultConsoleSetting = ConsoleSetting{
 	UptimeKumaEnabled:    true,
 	AnnouncementsEnabled: true,
 	FAQEnabled:           true,
+	ModelMonitor:         "",
 }
 
 // 全局实例

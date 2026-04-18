@@ -309,6 +309,13 @@ func SetApiRouter(router *gin.Engine) {
 			modelsRoute.DELETE("/:id", controller.DeleteModelMeta)
 		}
 
+		modelMonitorRoute := apiRouter.Group("/model_monitor")
+		{
+			modelMonitorRoute.GET("/metrics", middleware.UserAuth(), controller.GetModelMonitorMetrics)
+			modelMonitorRoute.GET("/config", middleware.UserAuth(), controller.GetModelMonitorConfigAPI)
+			modelMonitorRoute.PUT("/config", middleware.RootAuth(), controller.UpdateModelMonitorConfigAPI)
+		}
+
 		faqBoardRoute := apiRouter.Group("/faq/board")
 		{
 			faqBoardRoute.GET("/", controller.GetFAQBoardPosts)

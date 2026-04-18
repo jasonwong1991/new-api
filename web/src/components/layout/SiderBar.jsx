@@ -47,6 +47,7 @@ const routerMap = {
   pricing: '/pricing',
   task: '/console/task',
   models: '/console/models',
+  'model-monitor': '/console/model-monitor',
   playground: '/console/playground',
   personal: '/console/personal',
 };
@@ -104,6 +105,11 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         to: '/task',
         className:
           localStorage.getItem('enable_task') === 'true' ? '' : 'tableHiddle',
+      },
+      {
+        text: t('模型监控'),
+        itemKey: 'model-monitor',
+        to: '/model-monitor',
       },
     ];
 

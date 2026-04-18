@@ -44,6 +44,7 @@ import Midjourney from './pages/Midjourney';
 import Pricing from './pages/Pricing';
 import Task from './pages/Task';
 import ModelPage from './pages/Model';
+import ModelMonitor from './pages/ModelMonitor';
 import Playground from './pages/Playground';
 import OAuth2Callback from './components/auth/OAuth2Callback';
 import PersonalSetting from './components/settings/PersonalSetting';
@@ -369,6 +370,16 @@ function App() {
             <PrivateRoute>
               <Suspense fallback={<Loading></Loading>} key={location.pathname}>
                 <Chat2Link />
+              </Suspense>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path='/console/model-monitor'
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                <ModelMonitor />
               </Suspense>
             </PrivateRoute>
           }

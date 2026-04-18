@@ -25,6 +25,7 @@ import SettingsAnnouncements from '../../pages/Setting/Dashboard/SettingsAnnounc
 import SettingsFAQ from '../../pages/Setting/Dashboard/SettingsFAQ';
 import SettingsFAQBoard from '../../pages/Setting/Dashboard/SettingsFAQBoard';
 import SettingsUptimeKuma from '../../pages/Setting/Dashboard/SettingsUptimeKuma';
+import SettingsModelMonitor from '../../pages/Setting/Dashboard/SettingsModelMonitor';
 import SettingsDataDashboard from '../../pages/Setting/Dashboard/SettingsDataDashboard';
 
 const DashboardSetting = () => {
@@ -170,6 +171,11 @@ const DashboardSetting = () => {
         {/* Uptime Kuma 监控设置 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsUptimeKuma options={inputs} refresh={onRefresh} />
+        </Card>
+
+        {/* 模型监控页面设置 */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingsModelMonitor />
         </Card>
       </Spin>
     </>
