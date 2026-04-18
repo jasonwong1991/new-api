@@ -26,6 +26,7 @@ import {
   showSuccess,
   showWarning,
   verifyJSON,
+  toBoolean,
 } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
 
@@ -39,11 +40,16 @@ export default function GroupRatioSettings(props) {
     'group_ratio_setting.group_special_usable_group': '',
     AutoGroups: '',
     DefaultUseAutoGroup: false,
-    DynamicRatioEnabled: false,
-    DynamicRatioMax: 5,
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
+
+  // 动态倍率独立状态（与主表单解耦，避免 JSON 校验副作用影响保存）
+  const [dynamicRatio, setDynamicRatio] = useState({
+    DynamicRatioEnabled: false,
+    DynamicRatioMax: 5,
+  });
+  const [dynamicRatioLoading, setDynamicRatioLoading] = useState(false);
 
   async function onSubmit() {
     try {
@@ -109,7 +115,59 @@ export default function GroupRatioSettings(props) {
     setInputs(currentInputs);
     setInputsRow(structuredClone(currentInputs));
     refForm.current.setValues(currentInputs);
+
+    // 同步动态倍率状态（独立于主表单）
+    const nextDynamic = {
+      DynamicRatioEnabled: toBoolean(props.options.DynamicRatioEnabled),
+      DynamicRatioMax:
+        props.options.DynamicRatioMax !== undefined &&
+        props.options.DynamicRatioMax !== null &&
+        props.options.DynamicRatioMax !== ''
+          ? Number(props.options.DynamicRatioMax) || 5
+          : 5,
+    };
+    setDynamicRatio(nextDynamic);
   }, [props.options]);
+
+  // 保存动态倍率（独立保存，跳过表单校验与 compareObjects 脏判定）
+  const saveDynamicRatio = async () => {
+    const enabled = !!dynamicRatio.DynamicRatioEnabled;
+    let max = Number(dynamicRatio.DynamicRatioMax);
+    if (!Number.isFinite(max) || max < 1) {
+      showError(t('动态倍率上限必须为不小于 1 的数字'));
+      return;
+    }
+    if (max > 100) max = 100;
+    // 归一化到一位小数，与 InputNumber precision 一致
+    max = Math.round(max * 10) / 10;
+
+    setDynamicRatioLoading(true);
+    try {
+      const results = await Promise.all([
+        API.put('/api/option/', {
+          key: 'DynamicRatioEnabled',
+          value: String(enabled),
+        }),
+        API.put('/api/option/', {
+          key: 'DynamicRatioMax',
+          value: max,
+        }),
+      ]);
+      for (const r of results) {
+        if (!r?.data?.success) {
+          showError(r?.data?.message || t('动态倍率保存失败'));
+          return;
+        }
+      }
+      showSuccess(t('动态倍率设置已保存'));
+      if (props.refresh) props.refresh();
+    } catch (err) {
+      console.error('saveDynamicRatio failed:', err);
+      showError(err?.message || t('动态倍率保存失败'));
+    } finally {
+      setDynamicRatioLoading(false);
+    }
+  };
 
   return (
     <Spin spinning={loading}>
@@ -256,11 +314,14 @@ export default function GroupRatioSettings(props) {
               <Typography.Text strong>{t('启用动态倍率')}</Typography.Text>
               <div style={{ marginTop: 4, marginBottom: 8 }}>
                 <Switch
-                  checked={!!inputs.DynamicRatioEnabled}
+                  checked={!!dynamicRatio.DynamicRatioEnabled}
                   checkedText='|'
                   uncheckedText='O'
                   onChange={(value) =>
-                    setInputs({ ...inputs, DynamicRatioEnabled: value })
+                    setDynamicRatio((prev) => ({
+                      ...prev,
+                      DynamicRatioEnabled: value,
+                    }))
                   }
                 />
               </div>
@@ -272,20 +333,32 @@ export default function GroupRatioSettings(props) {
           <Col xs={24} sm={8}>
             <div style={{ marginBottom: 8 }}>
               <Typography.Text strong>{t('动态倍率上限')}</Typography.Text>
-              <div style={{ marginTop: 4, marginBottom: 8 }}>
+              <div style={{ marginTop: 4, marginBottom: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
                 <InputNumber
-                  value={inputs.DynamicRatioMax}
+                  value={dynamicRatio.DynamicRatioMax}
                   min={1}
                   max={100}
                   step={0.1}
                   precision={1}
                   onChange={(value) =>
-                    setInputs({ ...inputs, DynamicRatioMax: value })
+                    setDynamicRatio((prev) => ({
+                      ...prev,
+                      DynamicRatioMax: value,
+                    }))
                   }
                 />
+                <Button
+                  onClick={saveDynamicRatio}
+                  loading={dynamicRatioLoading}
+                  type='primary'
+                  theme='solid'
+                  size='default'
+                >
+                  {t('保存动态倍率')}
+                </Button>
               </div>
               <Typography.Text type='tertiary' size='small'>
-                {t('动态倍率的最大值，默认为5')}
+                {t('动态倍率的最大值，默认为5。该配置与分组倍率独立保存。')}
               </Typography.Text>
             </div>
           </Col>
