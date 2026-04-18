@@ -37,6 +37,7 @@ import {
   MonitorDataProvider,
   useMonitorStatus,
 } from './MonitorDataContext';
+import { STATUS_COLORS } from './StatusBars';
 
 const { Text } = Typography;
 
@@ -47,10 +48,10 @@ const GRANULARITY_OPTIONS = [
 ];
 
 const LEGEND_ITEMS = [
-  { color: 'bg-emerald-500', label: '正常' },
-  { color: 'bg-amber-400', label: '降级' },
-  { color: 'bg-rose-500', label: '故障' },
-  { color: 'bg-zinc-700/40', label: '无数据' },
+  { color: STATUS_COLORS.up, label: '正常' },
+  { color: STATUS_COLORS.degraded, label: '降级' },
+  { color: STATUS_COLORS.down, label: '故障' },
+  { color: STATUS_COLORS.no_data, label: '无数据' },
 ];
 
 const MonitorStatusBar = () => {
@@ -194,7 +195,8 @@ const ModelMonitorPage = () => {
             {LEGEND_ITEMS.map((it) => (
               <div key={it.label} className='flex items-center gap-1'>
                 <span
-                  className={`inline-block w-3 h-3 rounded-[2px] ${it.color}`}
+                  className='inline-block w-3 h-3'
+                  style={{ backgroundColor: it.color, borderRadius: 2 }}
                 />
                 <span>{t(it.label)}</span>
               </div>

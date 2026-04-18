@@ -17,15 +17,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { Tooltip } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
-const STATUS_CLASS = {
-  up: 'bg-emerald-500',
-  degraded: 'bg-amber-400',
-  down: 'bg-rose-500',
-  no_data: 'bg-zinc-700/40',
+// 注意：项目 tailwind.config.js 覆盖了默认调色板（只保留 semi-* 变量），
+// 所以这里不能用 bg-emerald-500 之类的原生 Tailwind 类，必须内联颜色。
+export const STATUS_COLORS = {
+  up: '#10b981', // 绿
+  degraded: '#f59e0b', // 橙
+  down: '#ef4444', // 红
+  no_data: 'rgba(113, 113, 122, 0.25)', // 灰
 };
 
 const formatBucketTime = (ts, granularity) => {
@@ -43,13 +45,12 @@ const formatBucketTime = (ts, granularity) => {
 const StatusBars = ({ buckets, granularity }) => {
   const { t } = useTranslation();
   const [hoveredIdx, setHoveredIdx] = useState(null);
-
   const items = buckets || [];
 
   return (
     <div className='flex items-stretch gap-[2px] w-full h-10 select-none'>
       {items.map((b, i) => {
-        const cls = STATUS_CLASS[b.status] || STATUS_CLASS.no_data;
+        const color = STATUS_COLORS[b.status] || STATUS_COLORS.no_data;
         const isHover = hoveredIdx === i;
         const tipLines = [
           formatBucketTime(b.ts, granularity),
@@ -72,9 +73,13 @@ const StatusBars = ({ buckets, granularity }) => {
             position='top'
           >
             <div
-              className={`flex-1 min-w-[4px] rounded-[2px] transition-all duration-150 cursor-pointer ${cls} ${
-                isHover ? 'opacity-80 scale-y-110' : ''
-              }`}
+              className='flex-1 min-w-[4px] cursor-pointer transition-all duration-150'
+              style={{
+                backgroundColor: color,
+                borderRadius: 2,
+                opacity: isHover ? 0.85 : 1,
+                transform: isHover ? 'scaleY(1.08)' : 'none',
+              }}
               onMouseEnter={() => setHoveredIdx(i)}
               onMouseLeave={() => setHoveredIdx(null)}
             />
