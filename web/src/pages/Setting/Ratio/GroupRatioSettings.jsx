@@ -48,6 +48,7 @@ export default function GroupRatioSettings(props) {
   const [dynamicRatio, setDynamicRatio] = useState({
     DynamicRatioEnabled: false,
     DynamicRatioMax: 5,
+    DynamicRatioTokenThresholdYi: 100, // 单位: 亿 tokens (= 1e8 tokens)
   });
   const [dynamicRatioLoading, setDynamicRatioLoading] = useState(false);
 
@@ -117,6 +118,14 @@ export default function GroupRatioSettings(props) {
     refForm.current.setValues(currentInputs);
 
     // 同步动态倍率状态（独立于主表单）
+    const rawThreshold = props.options.DynamicRatioTokenThreshold;
+    let thresholdYi = 100;
+    if (rawThreshold !== undefined && rawThreshold !== null && rawThreshold !== '') {
+      const tokens = Number(rawThreshold);
+      if (Number.isFinite(tokens) && tokens > 0) {
+        thresholdYi = Math.max(1, Math.round(tokens / 1e8));
+      }
+    }
     const nextDynamic = {
       DynamicRatioEnabled: toBoolean(props.options.DynamicRatioEnabled),
       DynamicRatioMax:
@@ -125,6 +134,7 @@ export default function GroupRatioSettings(props) {
         props.options.DynamicRatioMax !== ''
           ? Number(props.options.DynamicRatioMax) || 5
           : 5,
+      DynamicRatioTokenThresholdYi: thresholdYi,
     };
     setDynamicRatio(nextDynamic);
   }, [props.options]);
@@ -141,6 +151,13 @@ export default function GroupRatioSettings(props) {
     // 归一化到一位小数，与 InputNumber precision 一致
     max = Math.round(max * 10) / 10;
 
+    const thresholdYi = Number(dynamicRatio.DynamicRatioTokenThresholdYi);
+    if (!Number.isFinite(thresholdYi) || thresholdYi < 1) {
+      showError(t('动态倍率起始阈值必须为不小于 1 亿 tokens 的整数'));
+      return;
+    }
+    const thresholdTokens = Math.round(thresholdYi) * 100000000;
+
     setDynamicRatioLoading(true);
     try {
       const results = await Promise.all([
@@ -151,6 +168,10 @@ export default function GroupRatioSettings(props) {
         API.put('/api/option/', {
           key: 'DynamicRatioMax',
           value: max,
+        }),
+        API.put('/api/option/', {
+          key: 'DynamicRatioTokenThreshold',
+          value: String(thresholdTokens),
         }),
       ]);
       for (const r of results) {
@@ -326,7 +347,7 @@ export default function GroupRatioSettings(props) {
                 />
               </div>
               <Typography.Text type='tertiary' size='small'>
-                {t('开启后，分组倍率将根据平台当日(0点起)Token用量和当前RPM动态调整。100亿tokens以下倍率为1，超出后按公式计算，最大值可通过下方配置。')}
+                {t('开启后，分组倍率将根据平台当日(0点起)Token用量和当前RPM动态调整。起始阈值以下倍率为1，超出后按公式计算，最大值与起始阈值可通过右侧配置。')}
               </Typography.Text>
             </div>
           </Col>
@@ -359,6 +380,27 @@ export default function GroupRatioSettings(props) {
               </div>
               <Typography.Text type='tertiary' size='small'>
                 {t('动态倍率的最大值，默认为5。该配置与分组倍率独立保存。')}
+              </Typography.Text>
+            </div>
+            <div style={{ marginTop: 12, marginBottom: 8 }}>
+              <Typography.Text strong>{t('动态倍率起始阈值（亿 tokens）')}</Typography.Text>
+              <div style={{ marginTop: 4, marginBottom: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+                <InputNumber
+                  value={dynamicRatio.DynamicRatioTokenThresholdYi}
+                  min={1}
+                  max={100000}
+                  step={1}
+                  precision={0}
+                  onChange={(value) =>
+                    setDynamicRatio((prev) => ({
+                      ...prev,
+                      DynamicRatioTokenThresholdYi: value,
+                    }))
+                  }
+                />
+              </div>
+              <Typography.Text type='tertiary' size='small'>
+                {t('当日 Tokens 超过该阈值后才开始计算动态倍率，默认 100 亿。')}
               </Typography.Text>
             </div>
           </Col>

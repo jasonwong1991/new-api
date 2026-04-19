@@ -56,6 +56,7 @@ func InitOptionMap() {
 	common.OptionMap["DataExportEnabled"] = strconv.FormatBool(common.DataExportEnabled)
 	common.OptionMap["DynamicRatioEnabled"] = strconv.FormatBool(setting.DynamicRatioEnabled)
 	common.OptionMap["DynamicRatioMax"] = strconv.FormatFloat(setting.DynamicRatioMax, 'f', -1, 64)
+	common.OptionMap["DynamicRatioTokenThreshold"] = strconv.FormatInt(setting.GetDynamicRatioTokenThreshold(), 10)
 	common.OptionMap["QuotaLimitEnabled"] = strconv.FormatBool(quota_limit.IsEnabled())
 	common.OptionMap["QuotaDailyLimit"] = strconv.FormatInt(quota_limit.GetDailyLimit(), 10)
 	common.OptionMap["QuotaWeeklyLimit"] = strconv.FormatInt(quota_limit.GetWeeklyLimit(), 10)
@@ -517,6 +518,11 @@ func updateOptionMap(key string, value string) (err error) {
 	case "DynamicRatioMax":
 		setting.DynamicRatioMax, _ = strconv.ParseFloat(value, 64)
 		setting.TriggerDynamicRatioRefresh()
+	case "DynamicRatioTokenThreshold":
+		if n, err := strconv.ParseInt(value, 10, 64); err == nil {
+			setting.SetDynamicRatioTokenThreshold(n)
+			setting.TriggerDynamicRatioRefresh()
+		}
 	case "QuotaDailyLimit":
 		n, _ := strconv.ParseInt(value, 10, 64)
 		quota_limit.SetDailyLimit(n)

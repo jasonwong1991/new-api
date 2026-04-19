@@ -12,16 +12,37 @@ import (
 
 // Configuration constants
 const (
-	DynamicRatioTokenThreshold int64   = 10_000_000_000 // 10B tokens
-	DynamicRatioTokenRange     int64   = 20_000_000_000 // 20B range (10B-30B)
-	DynamicRatioRPMThreshold   float64 = 1000.0
-	DynamicRatioTokenWeight    float64 = 0.7
-	DynamicRatioRPMWeight      float64 = 0.3
-	DynamicRatioMin            float64 = 1.0
+	DefaultDynamicRatioTokenThreshold int64   = 10_000_000_000 // default 10B tokens
+	DynamicRatioTokenRange            int64   = 20_000_000_000 // 20B range above threshold
+	DynamicRatioRPMThreshold          float64 = 1000.0
+	DynamicRatioTokenWeight           float64 = 0.7
+	DynamicRatioRPMWeight             float64 = 0.3
+	DynamicRatioMin                   float64 = 1.0
 )
 
 var DynamicRatioEnabled = false
 var DynamicRatioMax float64 = 5.0
+
+// dynamicRatioTokenThreshold is mutable at runtime via admin panel.
+// Accessed atomically because CalculateDynamicRatio runs on every relay request.
+var dynamicRatioTokenThreshold int64 = DefaultDynamicRatioTokenThreshold
+
+// GetDynamicRatioTokenThreshold returns the current start threshold for dynamic ratio (in tokens).
+func GetDynamicRatioTokenThreshold() int64 {
+	v := atomic.LoadInt64(&dynamicRatioTokenThreshold)
+	if v <= 0 {
+		return DefaultDynamicRatioTokenThreshold
+	}
+	return v
+}
+
+// SetDynamicRatioTokenThreshold updates the start threshold; non-positive values fall back to default.
+func SetDynamicRatioTokenThreshold(v int64) {
+	if v <= 0 {
+		v = DefaultDynamicRatioTokenThreshold
+	}
+	atomic.StoreInt64(&dynamicRatioTokenThreshold, v)
+}
 
 type dynamicRatioCache struct {
 	mu          sync.RWMutex
@@ -51,33 +72,36 @@ func GetDynamicRatio() float64 {
 }
 
 type DynamicRatioInfo struct {
-	Tokens24h    int64   `json:"tokens_24h"`
-	CurrentRPM   int64   `json:"current_rpm"`
-	DynamicRatio float64 `json:"dynamic_ratio"`
-	MaxRatio     float64 `json:"max_ratio"`
-	Enabled      bool    `json:"enabled"`
-	UpdatedAt    int64   `json:"updated_at"`
+	Tokens24h      int64   `json:"tokens_24h"`
+	CurrentRPM     int64   `json:"current_rpm"`
+	DynamicRatio   float64 `json:"dynamic_ratio"`
+	MaxRatio       float64 `json:"max_ratio"`
+	TokenThreshold int64   `json:"token_threshold"`
+	Enabled        bool    `json:"enabled"`
+	UpdatedAt      int64   `json:"updated_at"`
 }
 
 func GetDynamicRatioInfo() DynamicRatioInfo {
 	drCache.mu.RLock()
 	defer drCache.mu.RUnlock()
 	return DynamicRatioInfo{
-		Tokens24h:    drCache.tokens24h,
-		CurrentRPM:   drCache.currentRPM,
-		DynamicRatio: drCache.ratio,
-		MaxRatio:     DynamicRatioMax,
-		Enabled:      DynamicRatioEnabled,
-		UpdatedAt:    drCache.lastUpdated.Unix(),
+		Tokens24h:      drCache.tokens24h,
+		CurrentRPM:     drCache.currentRPM,
+		DynamicRatio:   drCache.ratio,
+		MaxRatio:       DynamicRatioMax,
+		TokenThreshold: GetDynamicRatioTokenThreshold(),
+		Enabled:        DynamicRatioEnabled,
+		UpdatedAt:      drCache.lastUpdated.Unix(),
 	}
 }
 
 func CalculateDynamicRatio(tokens24h int64, currentRPM int64) float64 {
-	if tokens24h <= DynamicRatioTokenThreshold {
+	threshold := GetDynamicRatioTokenThreshold()
+	if tokens24h <= threshold {
 		return DynamicRatioMin
 	}
 
-	tokenExcess := float64(tokens24h - DynamicRatioTokenThreshold)
+	tokenExcess := float64(tokens24h - threshold)
 	tokenFactor := math.Min(tokenExcess/float64(DynamicRatioTokenRange), 1.0)
 
 	rpmFactor := math.Min(float64(currentRPM)/DynamicRatioRPMThreshold, 1.0)

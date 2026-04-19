@@ -70,6 +70,9 @@ const RatioSetting = () => {
           newInputs[item.key] = toBoolean(item.value);
         } else if (item.key === 'DynamicRatioMax') {
           newInputs[item.key] = parseFloat(item.value) || 5;
+        } else if (item.key === 'DynamicRatioTokenThreshold') {
+          const parsed = parseInt(item.value, 10);
+          newInputs[item.key] = Number.isFinite(parsed) && parsed > 0 ? parsed : 10000000000;
         } else {
           newInputs[item.key] = item.value;
         }

@@ -2332,7 +2332,11 @@
     "万": "W",
     "启用动态倍率": "Enable Dynamic Rate",
     "开启后，分组倍率将根据平台24小时Token用量和当前RPM动态调整（最大5倍）。100亿tokens以下倍率为1，超出后按公式计算。": "When enabled, group ratio will be dynamically adjusted based on platform 24h token usage and current RPM (max 5x). Ratio stays at 1 below 10B tokens, calculated by formula above that.",
+    "开启后，分组倍率将根据平台当日(0点起)Token用量和当前RPM动态调整。起始阈值以下倍率为1，超出后按公式计算，最大值与起始阈值可通过右侧配置。": "When enabled, group ratio is dynamically adjusted based on today's token usage (since 00:00) and current RPM. Below the start threshold the ratio stays at 1; above it, the formula applies. Max ratio and start threshold are both configurable on the right.",
     "动态倍率上限": "Dynamic Rate Max",
-    "动态倍率的最大值，默认为5": "Maximum value for dynamic rate, default is 5"
+    "动态倍率的最大值，默认为5": "Maximum value for dynamic rate, default is 5",
+    "动态倍率起始阈值（亿 tokens）": "Dynamic Rate Start Threshold (100M tokens)",
+    "当日 Tokens 超过该阈值后才开始计算动态倍率，默认 100 亿。": "Dynamic ratio only kicks in after today's tokens exceed this threshold. Default is 10B (100 × 100M).",
+    "动态倍率起始阈值必须为不小于 1 亿 tokens 的整数": "Start threshold must be an integer of at least 100M tokens"
   }
 }
