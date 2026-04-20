@@ -46,16 +46,6 @@ type modelMonitorMetric struct {
 	Quota            int64   `json:"quota"`
 }
 
-type modelMonitorAggRow struct {
-	ModelName        string  `gorm:"column:model_name"`
-	RequestCount     int64   `gorm:"column:request_count"`
-	ErrorCount       int64   `gorm:"column:error_count"`
-	AvgUseTime       float64 `gorm:"column:avg_use_time"`
-	PromptTokens     int64   `gorm:"column:prompt_tokens"`
-	CompletionTokens int64   `gorm:"column:completion_tokens"`
-	QuotaSum         int64   `gorm:"column:quota_sum"`
-}
-
 func windowSeconds(window string) int64 {
 	switch window {
 	case "1h":
@@ -81,21 +71,7 @@ func GetModelMonitorMetrics(c *gin.Context) {
 		window = "24h"
 	}
 
-	seconds := windowSeconds(window)
-	cutoff := time.Now().Unix() - seconds
-
-	var rows []modelMonitorAggRow
-	err := model.LOG_DB.Table("logs").
-		Select("model_name, "+
-			"SUM(CASE WHEN type = 2 THEN 1 ELSE 0 END) AS request_count, "+
-			"SUM(CASE WHEN type = 5 THEN 1 ELSE 0 END) AS error_count, "+
-			"AVG(use_time) AS avg_use_time, "+
-			"SUM(prompt_tokens) AS prompt_tokens, "+
-			"SUM(completion_tokens) AS completion_tokens, "+
-			"SUM(quota) AS quota_sum").
-		Where("created_at >= ? AND type IN (?, ?) AND model_name <> ''", cutoff, 2, 5).
-		Group("model_name").
-		Scan(&rows).Error
+	rows, err := service.GetCachedMetrics(window)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
 		return
@@ -108,6 +84,7 @@ func GetModelMonitorMetrics(c *gin.Context) {
 		}
 	}
 
+	seconds := windowSeconds(window)
 	minutes := float64(seconds) / 60.0
 	metrics := make([]modelMonitorMetric, 0, len(rows))
 	for _, r := range rows {
@@ -162,31 +139,19 @@ func GetModelMonitorModels(c *gin.Context) {
 
 	models := make([]string, 0)
 	if len(cfg.Models) > 0 {
-		// 显式白名单
+		// 显式白名单，无需缓存
 		for _, m := range cfg.Models {
 			if m != "" {
 				models = append(models, m)
 			}
 		}
 	} else {
-		// 无白名单：使用最近 7 天内有日志的模型作为默认清单
-		cutoff := time.Now().Unix() - 7*86400
-		var rows []struct {
-			ModelName string `gorm:"column:model_name"`
-			Total     int64  `gorm:"column:total"`
-		}
-		err := model.LOG_DB.Table("logs").
-			Select("model_name, COUNT(*) AS total").
-			Where("created_at >= ? AND type IN (?, ?) AND model_name <> ''", cutoff, 2, 5).
-			Group("model_name").
-			Order("total DESC").
-			Scan(&rows).Error
+		// 无白名单：使用最近 7 天内有日志的模型作为默认清单（带缓存）
+		var err error
+		models, err = service.GetCachedModelsList()
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
 			return
-		}
-		for _, r := range rows {
-			models = append(models, r.ModelName)
 		}
 	}
 

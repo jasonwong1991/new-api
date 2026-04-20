@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -349,12 +350,155 @@ func GetModelMonitorResultsBatch(models []string, granularity string) (map[strin
 	return v.(map[string]*ModelMonitorResult), nil
 }
 
+// --- Metrics cache (for /metrics endpoint) ---
+
+// MonitorAggRow holds per-model aggregated data from the logs table.
+type MonitorAggRow struct {
+	ModelName        string  `gorm:"column:model_name"`
+	RequestCount     int64   `gorm:"column:request_count"`
+	ErrorCount       int64   `gorm:"column:error_count"`
+	AvgUseTime       float64 `gorm:"column:avg_use_time"`
+	PromptTokens     int64   `gorm:"column:prompt_tokens"`
+	CompletionTokens int64   `gorm:"column:completion_tokens"`
+	QuotaSum         int64   `gorm:"column:quota_sum"`
+}
+
+type metricsCacheEntry struct {
+	expireAt time.Time
+	rows     []MonitorAggRow
+}
+
+const metricsCacheTTL = 30 * time.Second
+
+var (
+	metricsCache sync.Map // key: window string -> *metricsCacheEntry
+	metricsSF    singleflight.Group
+)
+
+// GetCachedMetrics returns aggregated MonitorAggRow for the given window (1h/24h/7d),
+// using a 30-second cache backed by singleflight to prevent stampedes.
+func GetCachedMetrics(window string) ([]MonitorAggRow, error) {
+	if v, ok := metricsCache.Load(window); ok {
+		if e, _ := v.(*metricsCacheEntry); e != nil && time.Now().Before(e.expireAt) {
+			return e.rows, nil
+		}
+	}
+
+	result, err, _ := metricsSF.Do(window, func() (interface{}, error) {
+		// Double-check inside singleflight to avoid races.
+		if v, ok := metricsCache.Load(window); ok {
+			if e, _ := v.(*metricsCacheEntry); e != nil && time.Now().Before(e.expireAt) {
+				return e.rows, nil
+			}
+		}
+
+		var seconds int64
+		switch window {
+		case "1h":
+			seconds = 3600
+		case "7d":
+			seconds = 7 * 86400
+		default:
+			seconds = 86400
+		}
+		cutoff := time.Now().Unix() - seconds
+
+		var rows []MonitorAggRow
+		err := model.LOG_DB.Table("logs").
+			Select("model_name, " +
+				"SUM(CASE WHEN type = 2 THEN 1 ELSE 0 END) AS request_count, " +
+				"SUM(CASE WHEN type = 5 THEN 1 ELSE 0 END) AS error_count, " +
+				"AVG(use_time) AS avg_use_time, " +
+				"SUM(prompt_tokens) AS prompt_tokens, " +
+				"SUM(completion_tokens) AS completion_tokens, " +
+				"SUM(quota) AS quota_sum").
+			Where("created_at >= ? AND type IN (?, ?) AND model_name <> ''", cutoff, 2, 5).
+			Group("model_name").
+			Scan(&rows).Error
+		if err != nil {
+			return nil, err
+		}
+
+		metricsCache.Store(window, &metricsCacheEntry{
+			expireAt: time.Now().Add(metricsCacheTTL),
+			rows:     rows,
+		})
+		return rows, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.([]MonitorAggRow), nil
+}
+
+// --- Models list cache (for /models endpoint) ---
+
+type modelsListCacheEntry struct {
+	expireAt time.Time
+	models   []string
+}
+
+const modelsListCacheTTL = 5 * time.Minute
+
+var (
+	modelsListCache atomic.Value // stores *modelsListCacheEntry
+	modelsListMu    sync.Mutex
+)
+
+// GetCachedModelsList returns the list of model names that have log entries in
+// the last 7 days, using a 5-minute cache. Only used when there is no explicit
+// whitelist configured.
+func GetCachedModelsList() ([]string, error) {
+	if e, _ := modelsListCache.Load().(*modelsListCacheEntry); e != nil && time.Now().Before(e.expireAt) {
+		return e.models, nil
+	}
+
+	modelsListMu.Lock()
+	defer modelsListMu.Unlock()
+
+	// Double-check after acquiring the lock.
+	if e, _ := modelsListCache.Load().(*modelsListCacheEntry); e != nil && time.Now().Before(e.expireAt) {
+		return e.models, nil
+	}
+
+	cutoff := time.Now().Unix() - 7*86400
+	var rows []struct {
+		ModelName string `gorm:"column:model_name"`
+		Total     int64  `gorm:"column:total"`
+	}
+	err := model.LOG_DB.Table("logs").
+		Select("model_name, COUNT(*) AS total").
+		Where("created_at >= ? AND type IN (?, ?) AND model_name <> ''", cutoff, 2, 5).
+		Group("model_name").
+		Order("total DESC").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	models := make([]string, 0, len(rows))
+	for _, r := range rows {
+		models = append(models, r.ModelName)
+	}
+
+	modelsListCache.Store(&modelsListCacheEntry{
+		expireAt: time.Now().Add(modelsListCacheTTL),
+		models:   models,
+	})
+	return models, nil
+}
+
 // InvalidateModelMonitorCache 手动失效（目前未使用，预留给配置变更触发）
 func InvalidateModelMonitorCache() {
 	monitorCache.Range(func(k, _ interface{}) bool {
 		monitorCache.Delete(k)
 		return true
 	})
+	metricsCache.Range(func(k, _ interface{}) bool {
+		metricsCache.Delete(k)
+		return true
+	})
+	modelsListCache.Store((*modelsListCacheEntry)(nil))
 }
 
 // joinSorted 稳定排序后 join，保证相同集合生成相同 key

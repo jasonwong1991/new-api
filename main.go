@@ -151,6 +151,10 @@ func main() {
 		common.SysLog("batch update enabled with interval " + strconv.Itoa(common.BatchUpdateInterval) + "s")
 		model.InitBatchUpdater()
 	}
+	if common.LogBatchEnabled {
+		common.SysLog("log batch writer enabled with size " + strconv.Itoa(common.LogBatchSize) + " and interval " + strconv.Itoa(common.LogBatchInterval) + "s")
+		model.InitLogBatchWriter()
+	}
 
 	if os.Getenv("ENABLE_PPROF") == "true" {
 		gopool.Go(func() {

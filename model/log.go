@@ -83,9 +83,11 @@ func RecordLog(userId int, logType int, content string) {
 		Type:      logType,
 		Content:   content,
 	}
-	err := LOG_DB.Create(log).Error
-	if err != nil {
-		common.SysLog("failed to record log: " + err.Error())
+	if !SubmitLog(log) {
+		err := LOG_DB.Create(log).Error
+		if err != nil {
+			common.SysLog("failed to record log: " + err.Error())
+		}
 	}
 }
 
@@ -127,9 +129,11 @@ func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string,
 		RequestId: requestId,
 		Other:     otherStr,
 	}
-	err := LOG_DB.Create(log).Error
-	if err != nil {
-		logger.LogError(c, "failed to record log: "+err.Error())
+	if !SubmitLog(log) {
+		err := LOG_DB.Create(log).Error
+		if err != nil {
+			logger.LogError(c, "failed to record log: "+err.Error())
+		}
 	}
 }
 
@@ -188,18 +192,20 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 		RequestId: requestId,
 		Other:     otherStr,
 	}
-	err := LOG_DB.Create(log).Error
-	if err != nil {
-		logger.LogError(c, "failed to record log: "+err.Error())
-	} else if params.Quota > 0 {
-		// Keep the quota-limit cache consistent so a burst of requests cannot
-		// ride a stale sample past the configured ceiling.
+	// Side-effects that must run regardless of sync vs. batch write path.
+	if params.Quota > 0 {
 		AddUserQuotaUsageDelta(userId, int64(params.Quota))
 	}
 	if common.DataExportEnabled {
 		gopool.Go(func() {
 			LogQuotaData(userId, username, params.ModelName, params.Quota, common.GetTimestamp(), params.PromptTokens+params.CompletionTokens)
 		})
+	}
+	if !SubmitLog(log) {
+		err := LOG_DB.Create(log).Error
+		if err != nil {
+			logger.LogError(c, "failed to record log: "+err.Error())
+		}
 	}
 }
 
@@ -240,11 +246,15 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 		Group:     params.Group,
 		Other:     common.MapToJsonStr(params.Other),
 	}
-	err := LOG_DB.Create(log).Error
-	if err != nil {
-		common.SysLog("failed to record task billing log: " + err.Error())
-	} else if params.LogType == LogTypeConsume && params.Quota > 0 {
+	// Side-effects that must run regardless of sync vs. batch write path.
+	if params.LogType == LogTypeConsume && params.Quota > 0 {
 		AddUserQuotaUsageDelta(params.UserId, int64(params.Quota))
+	}
+	if !SubmitLog(log) {
+		err := LOG_DB.Create(log).Error
+		if err != nil {
+			common.SysLog("failed to record task billing log: " + err.Error())
+		}
 	}
 }
 

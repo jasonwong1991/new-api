@@ -126,6 +126,10 @@ var SyncFrequency int // unit is second
 var BatchUpdateEnabled = false
 var BatchUpdateInterval int
 
+var LogBatchSize = 10     // max logs per batch insert
+var LogBatchInterval = 1  // seconds between flushes
+var LogBatchEnabled = false
+
 var RelayTimeout int // unit is second
 
 var RelayMaxIdleConns int

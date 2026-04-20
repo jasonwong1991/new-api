@@ -42,6 +42,93 @@ const (
 	subscriptionPlanInfoCacheNamespace = "new-api:subscription_plan_info:v1"
 )
 
+// --- Subscription status cache ---
+
+type subStatusEntry struct {
+	hasActive bool
+	expireAt  time.Time
+}
+
+const (
+	subStatusCacheTTL        = 60 * time.Second
+	subStatusCacheGCInterval = 5 * time.Minute
+)
+
+var (
+	subStatusCache       sync.Map // fallback when Redis is disabled; key: int(userId) -> *subStatusEntry
+	subStatusCacheGCOnce sync.Once
+)
+
+func startSubStatusCacheGC() {
+	go func() {
+		ticker := time.NewTicker(subStatusCacheGCInterval)
+		defer ticker.Stop()
+		for now := range ticker.C {
+			cleanupExpiredSubStatusCache(now)
+		}
+	}()
+}
+
+func cleanupExpiredSubStatusCache(now time.Time) {
+	subStatusCache.Range(func(key, value interface{}) bool {
+		entry, ok := value.(*subStatusEntry)
+		if !ok || entry == nil || !entry.expireAt.After(now) {
+			subStatusCache.Delete(key)
+		}
+		return true
+	})
+}
+
+func subStatusCacheKey(userId int) string {
+	return fmt.Sprintf("user_sub_status:%d", userId)
+}
+
+func getCachedSubStatus(userId int) (bool, bool) {
+	if common.RedisEnabled {
+		val, err := common.RedisGet(subStatusCacheKey(userId))
+		if err == nil && val != "" {
+			return val == "1", true
+		}
+		return false, false
+	}
+	subStatusCacheGCOnce.Do(startSubStatusCacheGC)
+	v, ok := subStatusCache.Load(userId)
+	if !ok {
+		return false, false
+	}
+	entry := v.(*subStatusEntry)
+	if time.Now().After(entry.expireAt) {
+		subStatusCache.Delete(userId)
+		return false, false
+	}
+	return entry.hasActive, true
+}
+
+func setCachedSubStatus(userId int, hasActive bool) {
+	if common.RedisEnabled {
+		val := "0"
+		if hasActive {
+			val = "1"
+		}
+		_ = common.RedisSet(subStatusCacheKey(userId), val, subStatusCacheTTL)
+		return
+	}
+	subStatusCacheGCOnce.Do(startSubStatusCacheGC)
+	subStatusCache.Store(userId, &subStatusEntry{
+		hasActive: hasActive,
+		expireAt:  time.Now().Add(subStatusCacheTTL),
+	})
+}
+
+// InvalidateSubStatusCache clears the subscription status cache for a user.
+// Call this when a subscription is created, renewed, cancelled, or expires.
+func InvalidateSubStatusCache(userId int) {
+	if common.RedisEnabled {
+		_ = common.RedisDel(subStatusCacheKey(userId))
+	}
+	subStatusCache.Delete(userId)
+}
+
 var (
 	subscriptionPlanCacheOnce     sync.Once
 	subscriptionPlanInfoCacheOnce sync.Once
@@ -565,6 +652,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string) error {
 		_ = UpdateUserGroupCache(logUserId, upgradeGroup)
 	}
 	if logUserId > 0 {
+		InvalidateSubStatusCache(logUserId)
 		msg := fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: %.2f，支付方式: %s", logPlanTitle, logMoney, logPaymentMethod)
 		RecordLog(logUserId, LogTypeTopup, msg)
 	}
@@ -643,6 +731,7 @@ func AdminBindSubscription(userId int, planId int, sourceNote string) (string, e
 	if err != nil {
 		return "", err
 	}
+	InvalidateSubStatusCache(userId)
 	if strings.TrimSpace(plan.UpgradeGroup) != "" {
 		_ = UpdateUserGroupCache(userId, plan.UpgradeGroup)
 		return fmt.Sprintf("用户分组将升级到 %s", plan.UpgradeGroup), nil
@@ -668,18 +757,27 @@ func GetAllActiveUserSubscriptions(userId int) ([]SubscriptionSummary, error) {
 
 // HasActiveUserSubscription returns whether the user has any active subscription.
 // This is a lightweight existence check to avoid heavy pre-consume transactions.
+// Results are cached for subStatusCacheTTL (60 s) in Redis or in-memory.
 func HasActiveUserSubscription(userId int) (bool, error) {
 	if userId <= 0 {
 		return false, errors.New("invalid userId")
 	}
-	now := common.GetTimestamp()
-	var count int64
-	if err := DB.Model(&UserSubscription{}).
-		Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
-		Count(&count).Error; err != nil {
-		return false, err
+	if cached, ok := getCachedSubStatus(userId); ok {
+		return cached, nil
 	}
-	return count > 0, nil
+	now := common.GetTimestamp()
+	var sub UserSubscription
+	tx := DB.Model(&UserSubscription{}).
+		Select("id").
+		Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
+		Limit(1).
+		Find(&sub)
+	if tx.Error != nil {
+		return false, tx.Error
+	}
+	result := tx.RowsAffected > 0
+	setCachedSubStatus(userId, result)
+	return result, nil
 }
 
 // GetAllUserSubscriptions returns all subscriptions (active and expired) for a user.
@@ -747,6 +845,9 @@ func AdminInvalidateUserSubscription(userSubscriptionId int) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if userId > 0 {
+		InvalidateSubStatusCache(userId)
+	}
 	if cacheGroup != "" && userId > 0 {
 		_ = UpdateUserGroupCache(userId, cacheGroup)
 	}
@@ -787,6 +888,9 @@ func AdminDeleteUserSubscription(userSubscriptionId int) (string, error) {
 	})
 	if err != nil {
 		return "", err
+	}
+	if userId > 0 {
+		InvalidateSubStatusCache(userId)
 	}
 	if cacheGroup != "" && userId > 0 {
 		_ = UpdateUserGroupCache(userId, cacheGroup)
@@ -885,6 +989,7 @@ func ExpireDueSubscriptions(limit int) (int, error) {
 		if err != nil {
 			return expiredCount, err
 		}
+		InvalidateSubStatusCache(userId)
 		if cacheGroup != "" {
 			_ = UpdateUserGroupCache(userId, cacheGroup)
 		}
