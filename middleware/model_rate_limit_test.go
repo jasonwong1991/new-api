@@ -26,25 +26,26 @@ func setupModelRateLimitTest(t *testing.T) {
 	for key := range setting.RateLimitExemptWhitelist {
 		originalWhitelist[key] = struct{}{}
 	}
+	originalIPWhitelist := append([]string(nil), setting.RateLimitExemptIPWhitelist...)
 
 	common.RedisEnabled = false
-	inMemoryRateLimiter = common.InMemoryRateLimiter{}
 	setting.ModelRequestRateLimitEnabled = true
 	setting.ModelRequestRateLimitDurationMinutes = 1
 	setting.ModelRequestRateLimitCount = 0
 	setting.ModelRequestIPRateLimitCount = 0
 	setting.ModelRequestRateLimitSuccessCount = 1000
 	setting.RateLimitExemptWhitelist = map[string]struct{}{}
+	setting.RateLimitExemptIPWhitelist = []string{}
 
 	t.Cleanup(func() {
 		common.RedisEnabled = originalRedisEnabled
-		inMemoryRateLimiter = common.InMemoryRateLimiter{}
 		setting.ModelRequestRateLimitEnabled = originalEnabled
 		setting.ModelRequestRateLimitDurationMinutes = originalDuration
 		setting.ModelRequestRateLimitCount = originalUserCount
 		setting.ModelRequestIPRateLimitCount = originalIPCount
 		setting.ModelRequestRateLimitSuccessCount = originalSuccessCount
 		setting.RateLimitExemptWhitelist = originalWhitelist
+		setting.RateLimitExemptIPWhitelist = originalIPWhitelist
 	})
 }
 
@@ -118,6 +119,34 @@ func TestModelRequestRateLimitWhitelistBypassesUserAndIPCounters(t *testing.T) {
 		t.Fatalf("expected non-whitelisted request to remain available after whitelist bypass, got status %d", code)
 	}
 	if code := performModelRateLimitRequest(router, remoteAddr, 1, "normal-user"); code != http.StatusTooManyRequests {
+		t.Fatalf("expected second non-whitelisted request to hit a rate limit, got status %d", code)
+	}
+}
+
+func TestModelRequestRateLimitIPWhitelistBypassesAllCounters(t *testing.T) {
+	setupModelRateLimitTest(t)
+
+	setting.ModelRequestRateLimitCount = 1
+	setting.ModelRequestIPRateLimitCount = 1
+	if err := setting.UpdateRateLimitExemptIPWhitelist("198.51.100.0/24"); err != nil {
+		t.Fatalf("failed to configure IP whitelist: %v", err)
+	}
+
+	router := newModelRateLimitTestRouter()
+	whitelistAddr := "198.51.100.10:1234"
+
+	if code := performModelRateLimitRequest(router, whitelistAddr, 1, "normal-user"); code != http.StatusOK {
+		t.Fatalf("expected first whitelisted IP request to pass, got status %d", code)
+	}
+	if code := performModelRateLimitRequest(router, whitelistAddr, 1, "normal-user"); code != http.StatusOK {
+		t.Fatalf("expected second whitelisted IP request to pass, got status %d", code)
+	}
+
+	nonWhitelistAddr := "203.0.113.18:1234"
+	if code := performModelRateLimitRequest(router, nonWhitelistAddr, 11, "normal-user"); code != http.StatusOK {
+		t.Fatalf("expected first non-whitelisted request to pass, got status %d", code)
+	}
+	if code := performModelRateLimitRequest(router, nonWhitelistAddr, 11, "normal-user"); code != http.StatusTooManyRequests {
 		t.Fatalf("expected second non-whitelisted request to hit a rate limit, got status %d", code)
 	}
 }

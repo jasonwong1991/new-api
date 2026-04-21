@@ -200,6 +200,10 @@ func ModelRequestRateLimit() func(c *gin.Context) {
 			c.Next()
 			return
 		}
+		if setting.IsRateLimitExemptIP(c.ClientIP()) {
+			c.Next()
+			return
+		}
 		if setting.IsRateLimitExemptUser(strconv.Itoa(c.GetInt("id")), c.GetString("username")) {
 			c.Next()
 			return

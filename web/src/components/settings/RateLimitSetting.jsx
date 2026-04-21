@@ -34,6 +34,7 @@ const RateLimitSetting = () => {
     ModelRequestRateLimitDurationMinutes: 1,
     ModelRequestRateLimitGroup: '',
     RateLimitExemptWhitelist: '',
+    RateLimitExemptIPWhitelist: '',
   });
 
   let [loading, setLoading] = useState(false);

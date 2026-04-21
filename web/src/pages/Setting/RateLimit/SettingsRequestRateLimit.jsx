@@ -52,6 +52,7 @@ export default function RequestRateLimit(props) {
     ModelRequestRateLimitDurationMinutes: 1,
     ModelRequestRateLimitGroup: '',
     RateLimitExemptWhitelist: '',
+    RateLimitExemptIPWhitelist: '',
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -308,6 +309,29 @@ export default function RequestRateLimit(props) {
                     <li>{t('建议仅添加管理员或测试账号')}</li>
                   </ul>
                 </div>
+              </Col>
+            </Row>
+            <Row gutter={16} style={{ marginTop: 16 }}>
+              <Col xs={24} sm={16}>
+                <Form.TextArea
+                  field={'RateLimitExemptIPWhitelist'}
+                  label={t('豁免 IP 白名单')}
+                  placeholder={t('支持单个 IP 或 CIDR，例如：\n127.0.0.1\n10.0.0.0/24')}
+                  autosize={{ minRows: 4, maxRows: 8 }}
+                  extraText={
+                    <div>
+                      <p>{t('说明：')}</p>
+                      <ul>
+                        <li>{t('支持 IPv4/IPv6 单个地址，也支持 CIDR 网段')}</li>
+                        <li>{t('可使用换行、逗号、分号或空格分隔多个条目')}</li>
+                        <li>{t('命中白名单的 IP 将完全绕过所有模型请求速率限制')}</li>
+                      </ul>
+                    </div>
+                  }
+                  onChange={(value) => {
+                    setInputs({ ...inputs, RateLimitExemptIPWhitelist: value });
+                  }}
+                />
               </Col>
             </Row>
             <Row style={{ marginTop: 16 }}>

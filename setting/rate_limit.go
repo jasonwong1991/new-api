@@ -3,6 +3,7 @@ package setting
 import (
 	"fmt"
 	"math"
+	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,6 +20,8 @@ var ModelRequestRateLimitGroup = map[string][2]int{}
 var ModelRequestRateLimitMutex sync.RWMutex
 var RateLimitExemptWhitelist = map[string]struct{}{}
 var RateLimitExemptWhitelistMutex sync.RWMutex
+var RateLimitExemptIPWhitelist = []string{}
+var RateLimitExemptIPWhitelistMutex sync.RWMutex
 
 func ModelRequestRateLimitGroup2JSONString() string {
 	ModelRequestRateLimitMutex.RLock()
@@ -109,6 +112,37 @@ func IsRateLimitExemptUser(userIdStr, username string) bool {
 	return false
 }
 
+func UpdateRateLimitExemptIPWhitelist(raw string) error {
+	whitelist, err := parseRateLimitExemptIPWhitelist(raw)
+	if err != nil {
+		return err
+	}
+
+	RateLimitExemptIPWhitelistMutex.Lock()
+	defer RateLimitExemptIPWhitelistMutex.Unlock()
+	RateLimitExemptIPWhitelist = whitelist
+	return nil
+}
+
+func CheckRateLimitExemptIPWhitelist(raw string) error {
+	_, err := parseRateLimitExemptIPWhitelist(raw)
+	return err
+}
+
+func IsRateLimitExemptIP(ipStr string) bool {
+	ip := common.ParseIP(ipStr)
+	if ip == nil {
+		return false
+	}
+
+	RateLimitExemptIPWhitelistMutex.RLock()
+	defer RateLimitExemptIPWhitelistMutex.RUnlock()
+	if len(RateLimitExemptIPWhitelist) == 0 {
+		return false
+	}
+	return common.IsIpInCIDRList(ip, RateLimitExemptIPWhitelist)
+}
+
 func parseRateLimitExemptWhitelist(jsonStr string) (map[string]struct{}, error) {
 	whitelist := make(map[string]struct{})
 	if strings.TrimSpace(jsonStr) == "" {
@@ -136,6 +170,50 @@ func parseRateLimitExemptWhitelist(jsonStr string) (map[string]struct{}, error) 
 		default:
 			return nil, fmt.Errorf("rate limit exempt whitelist only supports non-negative integer user IDs or usernames")
 		}
+	}
+
+	return whitelist, nil
+}
+
+func parseRateLimitExemptIPWhitelist(raw string) ([]string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return []string{}, nil
+	}
+
+	fields := strings.FieldsFunc(raw, func(r rune) bool {
+		switch r {
+		case ',', '\n', '\r', '\t', ' ', ';':
+			return true
+		default:
+			return false
+		}
+	})
+
+	whitelist := make([]string, 0, len(fields))
+	seen := make(map[string]struct{}, len(fields))
+	for _, field := range fields {
+		entry := strings.TrimSpace(field)
+		if entry == "" {
+			continue
+		}
+
+		if _, network, err := net.ParseCIDR(entry); err == nil {
+			normalized := network.String()
+			if _, exists := seen[normalized]; !exists {
+				whitelist = append(whitelist, normalized)
+				seen[normalized] = struct{}{}
+			}
+			continue
+		}
+
+		if !common.IsIP(entry) {
+			return nil, fmt.Errorf("rate limit exempt IP whitelist only supports IP or CIDR entries")
+		}
+		if _, exists := seen[entry]; exists {
+			continue
+		}
+		whitelist = append(whitelist, entry)
+		seen[entry] = struct{}{}
 	}
 
 	return whitelist, nil
