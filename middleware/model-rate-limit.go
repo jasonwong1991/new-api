@@ -18,6 +18,7 @@ import (
 
 const (
 	ModelRequestRateLimitCountMark        = "MRRL"
+	ModelRequestIPRateLimitCountMark      = "MRRLIP"
 	ModelRequestRateLimitSuccessCountMark = "MRRLS"
 )
 
@@ -75,11 +76,32 @@ func recordRedisRequest(ctx context.Context, rdb *redis.Client, key string, maxC
 }
 
 // Redis限流处理器
-func redisRateLimitHandler(duration int64, totalMaxCount, successMaxCount int) gin.HandlerFunc {
+func redisRateLimitHandler(duration int64, ipMaxCount, totalMaxCount, successMaxCount int) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userId := strconv.Itoa(c.GetInt("id"))
 		ctx := context.Background()
 		rdb := common.RDB
+
+		if ipMaxCount > 0 {
+			ipKey := fmt.Sprintf("rateLimit:%s:%s", ModelRequestIPRateLimitCountMark, c.ClientIP())
+			tb := limiter.New(ctx, rdb)
+			allowed, err := tb.Allow(
+				ctx,
+				ipKey,
+				limiter.WithCapacity(int64(ipMaxCount)*duration),
+				limiter.WithRate(int64(ipMaxCount)),
+				limiter.WithRequested(duration),
+			)
+			if err != nil {
+				fmt.Println("检查 IP 请求数限制失败:", err.Error())
+				abortWithOpenAiMessage(c, http.StatusInternalServerError, "rate_limit_check_failed")
+				return
+			}
+			if !allowed {
+				abortWithOpenAiMessage(c, http.StatusTooManyRequests, fmt.Sprintf("当前 IP 已达到请求数限制：%d分钟内最多请求%d次，包括失败次数", setting.ModelRequestRateLimitDurationMinutes, ipMaxCount))
+				return
+			}
+		}
 
 		// 1. 检查成功请求数限制
 		successKey := fmt.Sprintf("rateLimit:%s:%s", ModelRequestRateLimitSuccessCountMark, userId)
@@ -129,13 +151,20 @@ func redisRateLimitHandler(duration int64, totalMaxCount, successMaxCount int) g
 }
 
 // 内存限流处理器
-func memoryRateLimitHandler(duration int64, totalMaxCount, successMaxCount int) gin.HandlerFunc {
+func memoryRateLimitHandler(duration int64, ipMaxCount, totalMaxCount, successMaxCount int) gin.HandlerFunc {
 	inMemoryRateLimiter.Init(time.Duration(setting.ModelRequestRateLimitDurationMinutes) * time.Minute)
 
 	return func(c *gin.Context) {
 		userId := strconv.Itoa(c.GetInt("id"))
+		ipKey := ModelRequestIPRateLimitCountMark + c.ClientIP()
 		totalKey := ModelRequestRateLimitCountMark + userId
 		successKey := ModelRequestRateLimitSuccessCountMark + userId
+
+		if ipMaxCount > 0 && !inMemoryRateLimiter.Request(ipKey, ipMaxCount, duration) {
+			c.Status(http.StatusTooManyRequests)
+			c.Abort()
+			return
+		}
 
 		// 1. 检查总请求数限制（当totalMaxCount为0时跳过）
 		if totalMaxCount > 0 && !inMemoryRateLimiter.Request(totalKey, totalMaxCount, duration) {
@@ -171,9 +200,14 @@ func ModelRequestRateLimit() func(c *gin.Context) {
 			c.Next()
 			return
 		}
+		if setting.IsRateLimitExemptUser(strconv.Itoa(c.GetInt("id")), c.GetString("username")) {
+			c.Next()
+			return
+		}
 
 		// 计算限流参数
 		duration := int64(setting.ModelRequestRateLimitDurationMinutes * 60)
+		ipMaxCount := setting.ModelRequestIPRateLimitCount
 		totalMaxCount := setting.ModelRequestRateLimitCount
 		successMaxCount := setting.ModelRequestRateLimitSuccessCount
 
@@ -192,9 +226,9 @@ func ModelRequestRateLimit() func(c *gin.Context) {
 
 		// 根据存储类型选择并执行限流处理器
 		if common.RedisEnabled {
-			redisRateLimitHandler(duration, totalMaxCount, successMaxCount)(c)
+			redisRateLimitHandler(duration, ipMaxCount, totalMaxCount, successMaxCount)(c)
 		} else {
-			memoryRateLimitHandler(duration, totalMaxCount, successMaxCount)(c)
+			memoryRateLimitHandler(duration, ipMaxCount, totalMaxCount, successMaxCount)(c)
 		}
 	}
 }

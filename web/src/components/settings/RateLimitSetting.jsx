@@ -29,9 +29,11 @@ const RateLimitSetting = () => {
   let [inputs, setInputs] = useState({
     ModelRequestRateLimitEnabled: false,
     ModelRequestRateLimitCount: 0,
+    ModelRequestIPRateLimitCount: 0,
     ModelRequestRateLimitSuccessCount: 1000,
     ModelRequestRateLimitDurationMinutes: 1,
     ModelRequestRateLimitGroup: '',
+    RateLimitExemptWhitelist: '',
   });
 
   let [loading, setLoading] = useState(false);

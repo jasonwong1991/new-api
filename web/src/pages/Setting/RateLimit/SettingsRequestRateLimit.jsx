@@ -47,6 +47,7 @@ export default function RequestRateLimit(props) {
   const [inputs, setInputs] = useState({
     ModelRequestRateLimitEnabled: false,
     ModelRequestRateLimitCount: -1,
+    ModelRequestIPRateLimitCount: 0,
     ModelRequestRateLimitSuccessCount: 1000,
     ModelRequestRateLimitDurationMinutes: 1,
     ModelRequestRateLimitGroup: '',
@@ -320,7 +321,7 @@ export default function RequestRateLimit(props) {
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>
                 <Form.Switch
                   field={'ModelRequestRateLimitEnabled'}
-                  label={t('启用用户模型请求速率限制（可能会影响高并发性能）')}
+                  label={t('启用模型请求速率限制（可能会影响高并发性能）')}
                   size='default'
                   checkedText='｜'
                   uncheckedText='〇'
@@ -352,6 +353,23 @@ export default function RequestRateLimit(props) {
               </Col>
             </Row>
             <Row>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.InputNumber
+                  label={t('同一 IP 每周期最多请求次数')}
+                  step={1}
+                  min={0}
+                  max={100000000}
+                  suffix={t('次')}
+                  extraText={t('同一 IP 下所有账号共享该限制，0代表不限制')}
+                  field={'ModelRequestIPRateLimitCount'}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      ModelRequestIPRateLimitCount: String(value),
+                    })
+                  }
+                />
+              </Col>
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>
                 <Form.InputNumber
                   label={t('用户每周期最多请求次数')}
