@@ -56,3 +56,15 @@ func TestMigrateDBCreatesFAQBoardPostTable(t *testing.T) {
 		t.Fatalf("expected faq_board_posts table to be created")
 	}
 }
+
+func TestMigrateDBCreatesChatMessageTable(t *testing.T) {
+	db := setupMigrationTestDB(t)
+
+	if err := migrateDB(); err != nil {
+		t.Fatalf("migrateDB failed: %v", err)
+	}
+
+	if !db.Migrator().HasTable(&ChatMessage{}) {
+		t.Fatalf("expected chat_messages table to be created")
+	}
+}
