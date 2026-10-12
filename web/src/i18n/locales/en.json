@@ -2263,6 +2263,7 @@
     "模型": "Model",
     "调用次数": "Call Count",
     "简单易用的代理池解决方案": "Simple and easy-to-use proxy pool solution",
+    "原生 macOS 系统工具箱：真实内存优化、深度清理、风扇控制、防休眠、磁盘分析": "A native macOS system toolkit: memory optimization, deep cleanup, fan control, keep-awake, disk analyzer",
     "超简单拥有自己的代理池，只需要有节点即可": "Super easy to have your own proxy pool, just need nodes",
     "注意：仅 default 分组的 API Key 支持 OpenAI 格式调用": "Note: Only API Keys from the 'default' group support OpenAI format calls",
     "基础配置": "Basic Configuration",

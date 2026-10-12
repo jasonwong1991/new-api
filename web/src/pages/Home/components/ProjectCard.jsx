@@ -3,27 +3,26 @@ import { Card, Typography, Skeleton, Tag } from '@douyinfe/semi-ui';
 import { IconGithubLogo, IconStar } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 
-const ProjectCard = () => {
+const ProjectCard = ({ repo, description }) => {
   const { t } = useTranslation();
   const [stars, setStars] = useState(null);
   const [loading, setLoading] = useState(true);
+  const url = `https://github.com/${repo}`;
 
   useEffect(() => {
-    fetch('https://api.github.com/repos/jasonwong1991/easy_proxies')
+    fetch(`https://api.github.com/repos/${repo}`)
       .then((res) => res.json())
       .then((data) => {
         setStars(data.stargazers_count);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [repo]);
 
   return (
     <Card
       className='cursor-pointer hover:shadow-md transition-shadow duration-300'
-      onClick={() =>
-        window.open('https://github.com/jasonwong1991/easy_proxies', '_blank')
-      }
+      onClick={() => window.open(url, '_blank')}
       bodyStyle={{ padding: '16px 24px' }}
     >
       <div className='flex items-center justify-between'>
@@ -33,10 +32,10 @@ const ProjectCard = () => {
           </div>
           <div>
             <Typography.Title heading={5} style={{ margin: 0 }}>
-              easy_proxies
+              {repo.split('/')[1]}
             </Typography.Title>
             <Typography.Text type='secondary'>
-              {t('超简单拥有自己的代理池，只需要有节点即可')}
+              {description}
             </Typography.Text>
             <div className='mt-1'>
               <Tag color='pink' size='small' style={{ borderRadius: 12 }}>

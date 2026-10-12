@@ -71,7 +71,16 @@ const Home = () => {
 
       <div className='flex flex-col gap-6'>
         <DynamicRatioCard />
-        <ProjectCard />
+        <ProjectCard
+          repo='jasonwong1991/WonderBox'
+          description={t(
+            '原生 macOS 系统工具箱：真实内存优化、深度清理、风扇控制、防休眠、磁盘分析',
+          )}
+        />
+        <ProjectCard
+          repo='jasonwong1991/easy_proxies'
+          description={t('超简单拥有自己的代理池，只需要有节点即可')}
+        />
 
         <ScrollingNotice />
 
