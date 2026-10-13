@@ -11,6 +11,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -185,8 +186,14 @@ func GitHubOAuth(c *gin.Context) {
 	setupLogin(&user, c)
 }
 
+// isGitHubBindAllowed keeps GitHub binding available for the star reward
+// even when GitHub login/registration is disabled.
+func isGitHubBindAllowed() bool {
+	return common.GitHubOAuthEnabled || operation_setting.GetGitHubStarSetting().Enabled
+}
+
 func GitHubBind(c *gin.Context) {
-	if !common.GitHubOAuthEnabled {
+	if !isGitHubBindAllowed() {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": "管理员未开启通过 GitHub 登录以及注册",

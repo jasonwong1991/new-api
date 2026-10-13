@@ -68,3 +68,15 @@ func TestMigrateDBCreatesChatMessageTable(t *testing.T) {
 		t.Fatalf("expected chat_messages table to be created")
 	}
 }
+
+func TestMigrateDBCreatesGitHubStarClaimTable(t *testing.T) {
+	db := setupMigrationTestDB(t)
+
+	if err := migrateDB(); err != nil {
+		t.Fatalf("migrateDB failed: %v", err)
+	}
+
+	if !db.Migrator().HasTable(&GitHubStarClaim{}) {
+		t.Fatalf("expected github_star_claims table to be created")
+	}
+}

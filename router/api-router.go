@@ -84,6 +84,8 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.GET("/topup/self", controller.GetUserTopUps)
 				selfRoute.GET("/checkin", controller.GetCheckInStatus)
 				selfRoute.POST("/checkin", controller.PostCheckIn)
+				selfRoute.GET("/github_star", controller.GetGitHubStarStatus)
+				selfRoute.POST("/github_star/claim", middleware.CriticalRateLimit(), controller.ClaimGitHubStar)
 				selfRoute.POST("/topup", middleware.CriticalRateLimit(), controller.TopUp)
 				selfRoute.POST("/pay", middleware.CriticalRateLimit(), controller.RequestEpay)
 				selfRoute.POST("/amount", controller.RequestAmount)

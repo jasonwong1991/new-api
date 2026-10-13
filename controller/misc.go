@@ -48,6 +48,7 @@ func GetStatus(c *gin.Context) {
 	passkeySetting := system_setting.GetPasskeySettings()
 	legalSetting := system_setting.GetLegalSettings()
 	chatRoomSetting := chat_room_setting.GetChatRoomSetting()
+	gitHubStarSetting := operation_setting.GetGitHubStarSetting()
 
 	data := gin.H{
 		"version":                     common.Version,
@@ -108,6 +109,11 @@ func GetStatus(c *gin.Context) {
 		"chat_room_enabled":            chatRoomSetting.Enabled,
 		"chat_room_message_limit":      chatRoomSetting.MessageLimit,
 		"chat_room_max_message_length": chatRoomSetting.MaxMessageLength,
+
+		// GitHub Star 奖励
+		"github_star_reward_enabled": gitHubStarSetting.Enabled,
+		"github_star_reward_repos":   gitHubStarSetting.Repos,
+		"github_star_reward_quota":   gitHubStarSetting.QuotaPerRepo,
 
 		"oidc_enabled":                system_setting.GetOIDCSettings().Enabled,
 		"oidc_client_id":              system_setting.GetOIDCSettings().ClientId,
