@@ -29,6 +29,7 @@ import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLim
 import SettingsQuotaLimit from '../../pages/Setting/Operation/SettingsQuotaLimit';
 import SettingsLeaderboard from '../../pages/Setting/Operation/SettingsLeaderboard';
 import SettingsAppeals from '../../pages/Setting/Operation/SettingsAppeals';
+import SettingsGitHubStar from '../../pages/Setting/Operation/SettingsGitHubStar';
 import { API, showError, toBoolean } from '../../helpers';
 
 const OperationSetting = () => {
@@ -91,6 +92,10 @@ const OperationSetting = () => {
 
     /* 榜单设置 */
     LeaderboardHiddenUsers: '',
+    /* GitHub Star 奖励 */
+    'github_star_setting.enabled': false,
+    'github_star_setting.repos': '[]',
+    'github_star_setting.quota_per_repo': 0,
   });
 
   let [loading, setLoading] = useState(false);
@@ -169,6 +174,10 @@ const OperationSetting = () => {
         {/* 榜单设置 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsLeaderboard options={inputs} refresh={onRefresh} />
+        </Card>
+        {/* GitHub Star 奖励 */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingsGitHubStar options={inputs} refresh={onRefresh} />
         </Card>
         {/* 申诉管理 */}
         <div style={{ marginTop: '10px' }}>

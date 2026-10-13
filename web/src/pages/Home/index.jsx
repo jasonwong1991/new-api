@@ -33,11 +33,13 @@ import FloatingChatButton from './components/FloatingChatButton';
 import ArchivedUserCheck from './components/ArchivedUserCheck';
 import ScrollingNotice from './components/ScrollingNotice';
 import DynamicRatioCard from './components/DynamicRatioCard';
+import { useGitHubStarReward } from '../../hooks/githubStar/useGitHubStarReward';
 
 const Home = () => {
   const { t } = useTranslation();
   const [noticeVisible, setNoticeVisible] = useState(false);
   const isMobile = useIsMobile();
+  const { getRepoReward } = useGitHubStarReward();
 
   useEffect(() => {
     const checkNoticeAndShow = async () => {
@@ -76,10 +78,12 @@ const Home = () => {
           description={t(
             '原生 macOS 系统工具箱：真实内存优化、深度清理、风扇控制、防休眠、磁盘分析',
           )}
+          reward={getRepoReward('jasonwong1991/WonderBox')}
         />
         <ProjectCard
           repo='jasonwong1991/easy_proxies'
           description={t('超简单拥有自己的代理池，只需要有节点即可')}
+          reward={getRepoReward('jasonwong1991/easy_proxies')}
         />
 
         <ScrollingNotice />

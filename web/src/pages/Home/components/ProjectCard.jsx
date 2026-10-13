@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Typography, Skeleton, Tag } from '@douyinfe/semi-ui';
+import { Card, Typography, Skeleton, Tag, Button } from '@douyinfe/semi-ui';
 import { IconGithubLogo, IconStar } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
+import { renderQuota } from '../../../helpers';
 
-const ProjectCard = ({ repo, description }) => {
+const ProjectCard = ({ repo, description, reward }) => {
   const { t } = useTranslation();
   const [stars, setStars] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -37,10 +38,39 @@ const ProjectCard = ({ repo, description }) => {
             <Typography.Text type='secondary'>
               {description}
             </Typography.Text>
-            <div className='mt-1'>
+            <div className='mt-1 flex items-center gap-2'>
               <Tag color='pink' size='small' style={{ borderRadius: 12 }}>
                 💖 {t('如果对你有帮助，点个 Star 支持一下吧～')}
               </Tag>
+              {reward && (
+                <>
+                  <Tag color='green' size='small' style={{ borderRadius: 12 }}>
+                    {t('Star 领 {{quota}}', { quota: renderQuota(reward.quota) })}
+                  </Tag>
+                  {reward.state === 'claimed' ? (
+                    <Typography.Text type='success' size='small'>
+                      ✓ {t('已领取')}
+                    </Typography.Text>
+                  ) : (
+                    <Button
+                      size='small'
+                      theme='solid'
+                      type='primary'
+                      loading={reward.loading}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        reward.onAction();
+                      }}
+                    >
+                      {reward.state === 'login'
+                        ? t('登录后领取')
+                        : reward.state === 'bind'
+                          ? t('绑定 GitHub 领取')
+                          : t('验证并领取')}
+                    </Button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>

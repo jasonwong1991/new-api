@@ -92,6 +92,9 @@ const AccountManagement = ({
     );
   };
   const isBound = (accountId) => Boolean(accountId);
+  // Star 奖励开启时，即使未开放 GitHub 登录也允许绑定
+  const githubBindAvailable =
+    status.github_oauth || status.github_star_reward_enabled;
   const [showTelegramBindModal, setShowTelegramBindModal] =
     React.useState(false);
   const passkeyEnabled = passkeyStatus?.enabled;
@@ -239,10 +242,10 @@ const AccountManagement = ({
                       }
                       disabled={
                         isBound(userState.user?.github_id) ||
-                        !status.github_oauth
+                        !githubBindAvailable
                       }
                     >
-                      {status.github_oauth ? t('绑定') : t('未启用')}
+                      {githubBindAvailable ? t('绑定') : t('未启用')}
                     </Button>
                   </div>
                 </div>
